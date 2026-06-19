@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Flyer Route</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --ink:#10221b;
+    --paper:#f7f6f1;
+    --hi:#19e07a;            /* markeerstift-groen */
+    --hi-glow:rgba(25,224,122,.28);
+    --panel:rgba(247,246,241,.94);
+    --shadow:0 8px 30px rgba(16,34,27,.22);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;margin:0}
+  body{font-family:var(--sans);color:var(--ink);background:var(--paper);overflow:hidden}
+  #map{position:fixed;inset:0;z-index:1;background:#e8e7e1}
+
+  /* bovenbalk: instrument-uitlezing */
+  .readout{
+    position:fixed;top:0;left:0;right:0;z-index:1000;
+    padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;
+    display:flex;gap:8px;pointer-events:none;
+  }
+  .stat{
+    flex:1;background:var(--panel);backdrop-filter:blur(12px);
+    border:1px solid rgba(16,34,27,.07);border-radius:14px;
+    padding:9px 12px;box-shadow:var(--shadow);
+  }
+  .stat .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.55;font-weight:600}
+  .stat .v{font-family:var(--mono);font-size:21px;font-weight:600;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
+  .stat .v small{font-size:11px;opacity:.5;font-weight:500}
+
+  /* statuslampje */
+  .status{
+    position:fixed;z-index:1000;left:50%;transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top) + 78px);
+    background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);
+    border-radius:999px;padding:6px 14px 6px 11px;font-size:12.5px;font-weight:600;
+    display:flex;align-items:center;gap:8px;transition:opacity .3s;
+  }
+  .dot{width:9px;height:9px;border-radius:50%;background:#c2362f}
+  .status.live .dot{background:var(--hi);box-shadow:0 0 0 0 var(--hi);animation:pulse 1.6s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 var(--hi-glow)}70%{box-shadow:0 0 0 9px rgba(25,224,122,0)}100%{box-shadow:0 0 0 0 rgba(25,224,122,0)}}
+
+  /* onderbalk: knoppen */
+  .controls{
+    position:fixed;left:0;right:0;bottom:0;z-index:1000;
+    padding:14px 14px calc(env(safe-area-inset-bottom) + 14px);
+    display:flex;align-items:center;gap:12px;
+  }
+  .ctl{
+    width:54px;height:54px;flex:0 0 auto;border:none;border-radius:16px;
+    background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);
+    font-size:22px;display:grid;place-items:center;cursor:pointer;color:var(--ink);
+    transition:transform .12s;
+  }
+  .ctl:active{transform:scale(.92)}
+  .ctl.warn{color:#c2362f}
+  .go{
+    flex:1;height:54px;border:none;border-radius:16px;cursor:pointer;
+    background:#1f6feb;color:#fff;font-family:var(--sans);
+    font-size:16px;font-weight:700;letter-spacing:.02em;box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s,background .2s;
+  }
+  .go:active{transform:scale(.98)}
+  .go.live{background:var(--hi);color:#06301c}
+  .go .glyph{width:13px;height:13px;border-radius:3px;background:currentColor}
+  .go.live .glyph{border-radius:50%}
+
+  /* overlay (uitleg / fouten) */
+  .sheet{
+    position:fixed;inset:0;z-index:2000;background:rgba(16,34,27,.55);
+    backdrop-filter:blur(4px);display:none;align-items:flex-end;
+  }
+  .sheet.show{display:flex}
+  .card{
+    background:var(--paper);width:100%;border-radius:22px 22px 0 0;
+    padding:24px 22px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -10px 40px rgba(0,0,0,.3);
+    animation:rise .25s ease;
+  }
+  @keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .card h2{margin:0 0 6px;font-size:20px}
+  .card p{margin:0 0 16px;font-size:14.5px;line-height:1.5;opacity:.8}
+  .card .row{display:flex;gap:10px}
+  .card button{
+    flex:1;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:600;
+    font-family:var(--sans);cursor:pointer;
+  }
+  .btn-primary{background:var(--ink);color:var(--paper)}
+  .btn-ghost{background:rgba(16,34,27,.07);color:var(--ink)}
+  .btn-danger{background:#c2362f;color:#fff}
+
+  .leaflet-control-attribution{font-size:9px;opacity:.6}
+  .leaflet-bottom{margin-bottom:84px}
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="readout">
+  <div class="stat"><div class="k">Afstand</div><div class="v" id="dist">0,00<small> km</small></div></div>
+  <div class="stat"><div class="k">Tijd</div><div class="v" id="time">0:00</div></div>
+  <div class="stat"><div class="k">Punten</div><div class="v" id="pts">0</div></div>
+</div>
+
+<div class="status" id="status"><span class="dot"></span><span id="statusText">Klaar om te starten</span></div>
+
+<div class="controls">
+  <button class="ctl" id="center" title="Centreer op mij">⌖</button>
+  <button class="go" id="toggle"><span class="glyph"></span><span id="toggleLabel">Start route</span></button>
+  <button class="ctl warn" id="clear" title="Nieuwe route">↺</button>
+</div>
+
+<!-- nieuwe-route bevestiging -->
+<div class="sheet" id="confirmSheet">
+  <div class="card">
+    <h2>Nieuwe route beginnen?</h2>
+    <p>Je huidige gekleurde route wordt gewist. Dit kun je niet ongedaan maken.</p>
+    <div class="row">
+      <button class="btn-ghost" id="confirmCancel">Annuleren</button>
+      <button class="btn-danger" id="confirmClear">Wissen</button>
+    </div>
+  </div>
+</div>
+
+<!-- locatie-probleem -->
+<div class="sheet" id="errSheet">
+  <div class="card">
+    <h2 id="errTitle">Geen locatie</h2>
+    <p id="errBody"></p>
+    <div class="row"><button class="btn-primary" id="errOk">Begrepen</button></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+(function(){
+  "use strict";
+  const STORE_KEY = "flyer:route:v1";
+  const NL = [52.1326, 5.2913]; // middelpunt NL als startbeeld
+
+  // ---------- kaart ----------
+  const map = L.map("map", {zoomControl:false, attributionControl:true}).setView(NL, 7);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/voyager/{z}/{x}/{y}{r}.png", {
+    maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; CARTO'
+  }).addTo(map);
+  L.control.zoom({position:"topright"}).addTo(map);
+
+  // markeerstift-route = 2 lagen: brede gloed + kern
+  const glow = L.polyline([], {color:"#19e07a", weight:16, opacity:.25, lineCap:"round", lineJoin:"round"}).addTo(map);
+  const core = L.polyline([], {color:"#19e07a", weight:6,  opacity:.95, lineCap:"round", lineJoin:"round"}).addTo(map);
+  let here = null; // huidige-positie marker
+
+  // ---------- state ----------
+  let pts = [];          // [{lat,lng,t}]
+  let tracking = false;
+  let watchId = null;
+  let wakeLock = null;
+  let startClock = 0, baseElapsed = 0, tick = null;
+  let distance = 0;      // meters
+
+  // ---------- opslag (werkt binnen Claude én standalone gehost) ----------
+  function save(){
+    const data = JSON.stringify({pts, distance, baseElapsed});
+    try{ if(window.storage && window.storage.set){ window.storage.set(STORE_KEY, data, false); return; } }catch(e){}
+    try{ localStorage.setItem(STORE_KEY, data); }catch(e){}
+  }
+  async function load(){
+    let data = null;
+    try{ if(window.storage && window.storage.get){ const r = await window.storage.get(STORE_KEY, false); if(r && r.value) data = r.value; } }catch(e){}
+    if(data === null){ try{ data = localStorage.getItem(STORE_KEY); }catch(e){} }
+    if(data){ try{ const d = JSON.parse(data); pts = d.pts||[]; distance = d.distance||0; baseElapsed = d.baseElapsed||0; }catch(e){} }
+    redraw(); updateStats();
+    if(pts.length){ const last = pts[pts.length-1]; map.setView([last.lat,last.lng], 16); placeHere(last.lat,last.lng); }
+  }
+
+  // ---------- tekenen ----------
+  function redraw(){
+    const latlngs = pts.map(p=>[p.lat,p.lng]);
+    glow.setLatLngs(latlngs); core.setLatLngs(latlngs);
+  }
+  function placeHere(lat,lng){
+    if(!here){
+      here = L.circleMarker([lat,lng], {radius:7, color:"#fff", weight:3, fillColor:"#10221b", fillOpacity:1}).addTo(map);
+    } else here.setLatLng([lat,lng]);
+  }
+
+  // ---------- afstand ----------
+  function haversine(a,b){
+    const R=6371000, toR=x=>x*Math.PI/180;
+    const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));
+  }
+
+  // ---------- stats ----------
+  function fmtTime(ms){
+    const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
+    return h ? `${h}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`
+             : `${m}:${String(ss).padStart(2,"0")}`;
+  }
+  function updateStats(){
+    document.getElementById("dist").innerHTML = (distance/1000).toFixed(2).replace(".",",")+'<small> km</small>';
+    document.getElementById("pts").textContent = pts.length;
+    const elapsed = baseElapsed + (tracking ? Date.now()-startClock : 0);
+    document.getElementById("time").textContent = fmtTime(elapsed);
+  }
+
+  // ---------- GPS ----------
+  function onPos(pos){
+    const {latitude:lat, longitude:lng, accuracy} = pos.coords;
+    if(accuracy && accuracy > 60) { placeHere(lat,lng); return; } // sla onnauwkeurige punten over
+    const p = {lat,lng,t:Date.now()};
+    if(pts.length){
+      const d = haversine(pts[pts.length-1], p);
+      if(d < 4) { placeHere(lat,lng); return; }                  // negeer GPS-trilling < 4 m
+      distance += d;
+    } else {
+      map.setView([lat,lng], 17);
+    }
+    pts.push(p); redraw(); placeHere(lat,lng); updateStats(); save();
+  }
+  function onErr(err){
+    let body = "Onbekende fout bij het ophalen van je locatie.";
+    if(err.code===1) body = "De app heeft geen toestemming voor je locatie. Sta locatie toe en probeer opnieuw. Werkt het in de Claude-app niet, voeg deze pagina dan toe aan je beginscherm en open 'm daarvandaan — dan werkt GPS betrouwbaar.";
+    else if(err.code===2) body = "Je locatie is nu niet beschikbaar. Controleer of GPS/locatievoorzieningen aanstaan en of je buiten goed bereik hebt.";
+    else if(err.code===3) body = "Het duurde te lang om een locatie te vinden. Probeer het buiten opnieuw.";
+    showErr("Geen locatie", body);
+    stop();
+  }
+
+  // ---------- scherm wakker houden ----------
+  async function requestWake(){
+    try{ if("wakeLock" in navigator){ wakeLock = await navigator.wakeLock.request("screen"); } }catch(e){}
+  }
+  function releaseWake(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=null; }
+  document.addEventListener("visibilitychange", ()=>{ if(tracking && document.visibilityState==="visible") requestWake(); });
+
+  // ---------- start / stop ----------
+  function start(){
+    if(!("geolocation" in navigator)){ showErr("Geen GPS", "Dit apparaat of deze omgeving ondersteunt geen locatie."); return; }
+    tracking = true; startClock = Date.now();
+    watchId = navigator.geolocation.watchPosition(onPos, onErr, {enableHighAccuracy:true, maximumAge:0, timeout:20000});
+    requestWake();
+    tick = setInterval(updateStats, 1000);
+    setLive(true);
+  }
+  function stop(){
+    tracking = false;
+    if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
+    if(tick){ clearInterval(tick); tick=null; }
+    baseElapsed += startClock ? Date.now()-startClock : 0; startClock=0;
+    releaseWake(); save(); setLive(false); updateStats();
+  }
+  function setLive(on){
+    const s=document.getElementById("status"), st=document.getElementById("statusText");
+    const go=document.getElementById("toggle"), lbl=document.getElementById("toggleLabel");
+    s.classList.toggle("live", on);
+    st.textContent = on ? "Route wordt bijgehouden" : (pts.length? "Gepauzeerd" : "Klaar om te starten");
+    go.classList.toggle("live", on);
+    lbl.textContent = on ? "Pauze" : (pts.length? "Hervat route" : "Start route");
+  }
+
+  // ---------- knoppen ----------
+  document.getElementById("toggle").onclick = ()=> tracking ? stop() : start();
+  document.getElementById("center").onclick = ()=>{
+    if(pts.length){ const l=pts[pts.length-1]; map.setView([l.lat,l.lng], 17); }
+    else navigator.geolocation && navigator.geolocation.getCurrentPosition(
+      p=>{ map.setView([p.coords.latitude,p.coords.longitude],17); placeHere(p.coords.latitude,p.coords.longitude); }, ()=>{}, {enableHighAccuracy:true});
+  };
+  const confirmSheet=document.getElementById("confirmSheet");
+  document.getElementById("clear").onclick = ()=> confirmSheet.classList.add("show");
+  document.getElementById("confirmCancel").onclick = ()=> confirmSheet.classList.remove("show");
+  document.getElementById("confirmClear").onclick = async ()=>{
+    stop(); pts=[]; distance=0; baseElapsed=0;
+    redraw(); updateStats(); await save();
+    if(here){ map.removeLayer(here); here=null; }
+    setLive(false); confirmSheet.classList.remove("show");
+  };
+
+  // foutoverlay
+  function showErr(title, body){
+    document.getElementById("errTitle").textContent=title;
+    document.getElementById("errBody").textContent=body;
+    document.getElementById("errSheet").classList.add("show");
+  }
+  document.getElementById("errOk").onclick = ()=> document.getElementById("errSheet").classList.remove("show");
+
+  load();
+})();
+</script>
+</body>
+</html>
