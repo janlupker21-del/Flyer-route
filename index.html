@@ -6,113 +6,92 @@
 <title>Flyer Route</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
-  :root{
-    --ink:#10221b; --paper:#f7f6f1; --hi:#19e07a; --hi-glow:rgba(25,224,122,.28);
-    --panel:rgba(247,246,241,.94); --shadow:0 8px 30px rgba(16,34,27,.22);
-    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  }
+  :root{--ink:#10221b;--paper:#f7f6f1;--hi:#19e07a;--hi-glow:rgba(25,224,122,.28);
+    --panel:rgba(247,246,241,.94);--shadow:0 8px 30px rgba(16,34,27,.22);
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;--sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
   *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;margin:0}
   body{font-family:var(--sans);color:var(--ink);background:var(--paper);overflow:hidden}
   #map{position:fixed;inset:0;z-index:1;background:#e8e7e1}
-
-  .readout{position:fixed;top:0;left:0;right:0;z-index:1000;
-    padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;display:flex;gap:8px;pointer-events:none}
-  body.viewing .readout, body.viewing .status{display:none}
-  .stat{flex:1;background:var(--panel);backdrop-filter:blur(12px);border:1px solid rgba(16,34,27,.07);
-    border-radius:14px;padding:9px 12px;box-shadow:var(--shadow)}
+  .readout{position:fixed;top:0;left:0;right:0;z-index:1000;padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;display:flex;gap:8px;pointer-events:none}
+  body.viewing .readout, body.viewing .status, body.viewing #markBtn{display:none}
+  .stat{flex:1;background:var(--panel);backdrop-filter:blur(12px);border:1px solid rgba(16,34,27,.07);border-radius:14px;padding:9px 12px;box-shadow:var(--shadow)}
   .stat.tap{pointer-events:auto;cursor:pointer;user-select:none;-webkit-user-select:none}
   .stat.flash{animation:flash .6s ease}
   @keyframes flash{0%{background:var(--hi)}100%{background:var(--panel)}}
   .stat .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.55;font-weight:600}
   .stat .v{font-family:var(--mono);font-size:21px;font-weight:600;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
   .stat .v small{font-size:11px;opacity:.5;font-weight:500}
-
-  .status{position:fixed;z-index:1000;left:50%;transform:translateX(-50%);
-    top:calc(env(safe-area-inset-top) + 78px);background:var(--panel);backdrop-filter:blur(12px);
-    box-shadow:var(--shadow);border-radius:999px;padding:6px 14px 6px 11px;font-size:12.5px;font-weight:600;
-    display:flex;align-items:center;gap:8px;transition:opacity .3s}
+  .status{position:fixed;z-index:1000;left:50%;transform:translateX(-50%);top:calc(env(safe-area-inset-top) + 78px);background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);border-radius:999px;padding:6px 14px 6px 11px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px}
   .dot{width:9px;height:9px;border-radius:50%;background:#c2362f}
   .status.live .dot{background:var(--hi);box-shadow:0 0 0 0 var(--hi);animation:pulse 1.6s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 var(--hi-glow)}70%{box-shadow:0 0 0 9px rgba(25,224,122,0)}100%{box-shadow:0 0 0 0 rgba(25,224,122,0)}}
-
-  .banner{position:fixed;z-index:1100;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);
-    background:var(--ink);color:var(--paper);border-radius:14px;padding:10px 12px;display:none;
-    align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow)}
+  .banner{position:fixed;z-index:1100;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);background:var(--ink);color:var(--paper);border-radius:14px;padding:10px 12px;display:none;align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow)}
   .banner.show{display:flex}
   .banner .bt{font-size:13px;line-height:1.3}
   .banner .bt small{display:block;opacity:.7;font-weight:500}
-  .banner button{background:var(--paper);color:var(--ink);border:none;border-radius:10px;
-    padding:9px 13px;font-weight:700;font-size:13px;font-family:var(--sans);flex:0 0 auto}
-
-  .controls{position:fixed;left:0;right:0;bottom:0;z-index:1000;
-    padding:14px 14px calc(env(safe-area-inset-bottom) + 14px);display:flex;align-items:center;gap:12px}
-  .ctl{width:54px;height:54px;flex:0 0 auto;border:none;border-radius:16px;background:var(--panel);
-    backdrop-filter:blur(12px);box-shadow:var(--shadow);font-size:22px;display:grid;place-items:center;
-    cursor:pointer;color:var(--ink);transition:transform .12s}
+  .banner button{background:var(--paper);color:var(--ink);border:none;border-radius:10px;padding:9px 13px;font-weight:700;font-size:13px;font-family:var(--sans);flex:0 0 auto}
+  .fab{position:fixed;z-index:1000;left:14px;bottom:calc(env(safe-area-inset-bottom) + 82px);width:52px;height:52px;border:none;border-radius:16px;background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);font-size:22px;display:grid;place-items:center;cursor:pointer}
+  .fab:active{transform:scale(.92)}
+  .controls{position:fixed;left:0;right:0;bottom:0;z-index:1000;padding:14px 14px calc(env(safe-area-inset-bottom) + 14px);display:flex;align-items:center;gap:12px}
+  .ctl{width:54px;height:54px;flex:0 0 auto;border:none;border-radius:16px;background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);font-size:22px;display:grid;place-items:center;cursor:pointer;color:var(--ink);transition:transform .12s}
   .ctl:active{transform:scale(.92)}
-  .go{flex:1;height:54px;border:none;border-radius:16px;cursor:pointer;background:#1f6feb;color:#fff;
-    font-family:var(--sans);font-size:16px;font-weight:700;letter-spacing:.02em;box-shadow:var(--shadow);
-    display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s,background .2s}
+  .go{flex:1;height:54px;border:none;border-radius:16px;cursor:pointer;background:#1f6feb;color:#fff;font-family:var(--sans);font-size:16px;font-weight:700;letter-spacing:.02em;box-shadow:var(--shadow);display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s,background .2s}
   .go:active{transform:scale(.98)}
   .go.live{background:var(--hi);color:#06301c}
   .go .glyph{width:13px;height:13px;border-radius:3px;background:currentColor}
   .go.live .glyph{border-radius:50%}
-
-  .sheet{position:fixed;inset:0;z-index:2000;background:rgba(16,34,27,.55);backdrop-filter:blur(4px);
-    display:none;align-items:flex-end}
+  .sheet{position:fixed;inset:0;z-index:2000;background:rgba(16,34,27,.55);backdrop-filter:blur(4px);display:none;align-items:flex-end}
   .sheet.show{display:flex}
-  .card{background:var(--paper);width:100%;border-radius:22px 22px 0 0;
-    padding:22px 20px calc(env(safe-area-inset-bottom) + 18px);box-shadow:0 -10px 40px rgba(0,0,0,.3);animation:rise .25s ease}
-  .card.scroll{max-height:74vh;overflow:auto}
+  .card{background:var(--paper);width:100%;border-radius:22px 22px 0 0;padding:22px 20px calc(env(safe-area-inset-bottom) + 18px);box-shadow:0 -10px 40px rgba(0,0,0,.3);animation:rise .25s ease}
+  .card.scroll{max-height:82vh;overflow:auto}
   @keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
   .card h2{margin:0 0 14px;font-size:19px}
+  .card p{font-size:14.5px;opacity:.8}
   .card .row{display:flex;gap:10px;margin-top:4px}
   .card .row button{flex:1;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:600;font-family:var(--sans);cursor:pointer}
   .btn-primary{background:var(--ink);color:var(--paper)}
   .btn-ghost{background:rgba(16,34,27,.07);color:var(--ink)}
   .btn-danger{background:#c2362f;color:#fff}
-
-  .menu-item{display:block;width:100%;text-align:left;border:none;background:rgba(16,34,27,.05);
-    border-radius:13px;padding:14px;font-size:15px;font-weight:600;font-family:var(--sans);color:var(--ink);
-    cursor:pointer;margin-bottom:10px}
+  .menu-item{display:block;width:100%;text-align:left;border:none;background:rgba(16,34,27,.05);border-radius:13px;padding:14px;font-size:15px;font-weight:600;font-family:var(--sans);color:var(--ink);cursor:pointer;margin-bottom:10px}
   .menu-item .sub{display:block;font-weight:500;font-size:12.5px;opacity:.6;margin-top:3px}
   .menu-item.danger{color:#c2362f;background:rgba(194,54,47,.08)}
   .menu-item:disabled{opacity:.4}
-  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;
-    border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px;font-size:15px;font-weight:600}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px;font-size:15px;font-weight:600}
   .switch{width:48px;height:28px;border-radius:999px;background:#c9ccc9;position:relative;transition:background .2s;flex:0 0 auto}
   .switch.on{background:var(--hi)}
   .switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s}
   .switch.on::after{transform:translateX(20px)}
-
-  .route-item{display:flex;align-items:center;gap:10px;padding:12px;border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px}
-  .route-item .info{flex:1;cursor:pointer}
-  .route-item .info .d{font-weight:700;font-size:14.5px}
+  .section{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.5;font-weight:700;margin:16px 2px 8px}
+  .slider-wrap{padding:12px 14px;border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px}
+  .slider-wrap label{display:flex;justify-content:space-between;font-size:14px;font-weight:600;margin-bottom:8px}
+  .slider-wrap label b{font-family:var(--mono)}
+  .slider-wrap input[type=range]{width:100%;accent-color:var(--hi)}
+  .tot{padding:12px 14px;border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px}
+  .tot .tl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;opacity:.55;font-weight:700}
+  .tot .tv{font-size:15px;font-weight:700;margin-top:3px;font-variant-numeric:tabular-nums}
+  .route-item{display:flex;align-items:center;gap:8px;padding:12px;border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px}
+  .route-item .info{flex:1;cursor:pointer;min-width:0}
+  .route-item .info .d{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .route-item .info .m{font-size:12.5px;opacity:.65;margin-top:2px;font-variant-numeric:tabular-nums}
-  .route-item .del{border:none;background:rgba(194,54,47,.1);color:#c2362f;width:38px;height:38px;border-radius:10px;font-size:18px;flex:0 0 auto;cursor:pointer}
+  .route-item .ic{border:none;width:38px;height:38px;border-radius:10px;font-size:16px;flex:0 0 auto;cursor:pointer;background:rgba(16,34,27,.08);color:var(--ink)}
+  .route-item .del{background:rgba(194,54,47,.1);color:#c2362f}
   .empty{opacity:.55;font-size:14px;text-align:center;padding:22px 0}
-
   .leaflet-control-attribution{font-size:9px;opacity:.6}
   .leaflet-bottom{margin-bottom:84px}
 </style>
 </head>
 <body>
 <div id="map"></div>
-
 <div class="readout">
   <div class="stat"><div class="k">Afstand</div><div class="v" id="dist">0,00<small> km</small></div></div>
   <div class="stat"><div class="k">Tijd</div><div class="v" id="time">0:00</div></div>
   <div class="stat tap" id="bez"><div class="k">Bezorgd</div><div class="v" id="deliv">0</div></div>
 </div>
-
 <div class="status" id="status"><span class="dot"></span><span id="statusText">Klaar om te starten</span></div>
+<div class="banner" id="banner"><div class="bt" id="bannerText">Opgeslagen route</div><button id="backLive">Terug naar live</button></div>
 
-<div class="banner" id="banner">
-  <div class="bt" id="bannerText">Opgeslagen route</div>
-  <button id="backLive">Terug naar live</button>
-</div>
+<button class="fab" id="markBtn" title="Markering plaatsen">📍</button>
 
 <div class="controls">
   <button class="ctl" id="center" title="Centreer op mij">⌖</button>
@@ -120,54 +99,58 @@
   <button class="ctl" id="menuBtn" title="Menu">☰</button>
 </div>
 
-<!-- menu -->
-<div class="sheet" id="menuSheet">
-  <div class="card">
-    <h2>Menu</h2>
-    <button class="menu-item" id="finishBtn">Route afronden &amp; opslaan<span class="sub" id="finishSub">—</span></button>
-    <button class="menu-item" id="routesBtn">Opgeslagen routes<span class="sub" id="routesSub">—</span></button>
-    <div class="toggle-row"><span>Automatisch tellen bij stilstaan</span><div class="switch on" id="autoSwitch"></div></div>
-    <div class="toggle-row"><span>Oude routes op de kaart tonen</span><div class="switch on" id="histSwitch"></div></div>
-    <button class="menu-item danger" id="clearBtn">Huidige route wissen</button>
-    <div class="row"><button class="btn-ghost" id="menuClose">Sluiten</button></div>
-  </div>
-</div>
+<div class="sheet" id="menuSheet"><div class="card scroll">
+  <h2>Menu</h2>
+  <button class="menu-item" id="finishBtn">Route afronden &amp; opslaan<span class="sub" id="finishSub">—</span></button>
+  <button class="menu-item" id="routesBtn">Opgeslagen routes<span class="sub" id="routesSub">—</span></button>
+  <div class="toggle-row"><span>Automatisch tellen bij stilstaan</span><div class="switch on" id="autoSwitch"></div></div>
+  <div class="toggle-row"><span>Oude routes op de kaart tonen</span><div class="switch on" id="histSwitch"></div></div>
+  <div class="section">Gevoeligheid automatisch tellen</div>
+  <div class="slider-wrap"><label>Tellen na stilstaan <b id="dwellVal">6 s</b></label><input type="range" id="dwellSlider" min="3" max="12" step="1" value="6"></div>
+  <div class="slider-wrap"><label>Afstand-marge bij stilstaan <b id="radVal">12 m</b></label><input type="range" id="radSlider" min="8" max="22" step="1" value="12"></div>
+  <div class="section">Back-up</div>
+  <button class="menu-item" id="exportBtn">Back-up exporteren<span class="sub">Alle routes naar een bestand</span></button>
+  <button class="menu-item" id="importBtn">Back-up importeren<span class="sub">Routes uit een bestand terugzetten</span></button>
+  <input type="file" id="importFile" accept="application/json,.json" style="display:none">
+  <button class="menu-item danger" id="clearBtn">Huidige route wissen</button>
+  <div class="row"><button class="btn-ghost" id="menuClose">Sluiten</button></div>
+</div></div>
 
-<!-- opgeslagen routes -->
-<div class="sheet" id="routesSheet">
-  <div class="card scroll">
-    <h2>Opgeslagen routes</h2>
-    <div id="routesList"></div>
-    <div class="row"><button class="btn-ghost" id="routesClose">Sluiten</button></div>
-  </div>
-</div>
+<div class="sheet" id="markSheet"><div class="card">
+  <h2>Markering plaatsen</h2>
+  <button class="menu-item" data-mark="nee">🔴 Nee/Nee sticker</button>
+  <button class="menu-item" data-mark="niet">🟠 Niet kunnen bezorgen</button>
+  <button class="menu-item" data-mark="notitie">🔵 Notitie / overig</button>
+  <div class="row"><button class="btn-ghost" id="markClose">Annuleren</button></div>
+</div></div>
 
-<!-- wissen bevestiging -->
-<div class="sheet" id="confirmSheet">
-  <div class="card">
-    <h2>Huidige route wissen?</h2>
-    <p style="margin:0 0 16px;font-size:14.5px;opacity:.8">De route die je nu aan het lopen bent wordt gewist. Opgeslagen routes blijven staan.</p>
-    <div class="row"><button class="btn-ghost" id="confirmCancel">Annuleren</button><button class="btn-danger" id="confirmClear">Wissen</button></div>
-  </div>
-</div>
+<div class="sheet" id="routesSheet"><div class="card scroll">
+  <h2>Opgeslagen routes</h2>
+  <div id="totals"></div>
+  <div id="routesList"></div>
+  <div class="row"><button class="btn-ghost" id="routesClose">Sluiten</button></div>
+</div></div>
 
-<!-- locatie-probleem -->
-<div class="sheet" id="errSheet">
-  <div class="card">
-    <h2 id="errTitle">Geen locatie</h2>
-    <p id="errBody" style="margin:0 0 16px;font-size:14.5px;opacity:.8"></p>
-    <div class="row"><button class="btn-primary" id="errOk">Begrepen</button></div>
-  </div>
-</div>
+<div class="sheet" id="confirmSheet"><div class="card">
+  <h2>Huidige route wissen?</h2>
+  <p style="margin:0 0 16px">De route die je nu loopt wordt gewist. Opgeslagen routes blijven staan.</p>
+  <div class="row"><button class="btn-ghost" id="confirmCancel">Annuleren</button><button class="btn-danger" id="confirmClear">Wissen</button></div>
+</div></div>
+
+<div class="sheet" id="errSheet"><div class="card">
+  <h2 id="errTitle">Melding</h2>
+  <p id="errBody" style="margin:0 0 16px"></p>
+  <div class="row"><button class="btn-primary" id="errOk">Begrepen</button></div>
+</div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
 (function(){
   "use strict";
-  const K_ACTIVE="flyer:active:v2", K_ROUTES="flyer:routes:v2", K_AUTO="flyer:auto:v2", K_HIST="flyer:showhist:v2", K_OLD="flyer:route:v1";
+  const K_ACTIVE="flyer:active:v2", K_ROUTES="flyer:routes:v2", K_SET="flyer:set:v3",
+        K_AUTO="flyer:auto:v2", K_HIST="flyer:showhist:v2", K_OLD="flyer:route:v1";
   const NL=[52.1326,5.2913];
-  // detectie-instellingen
-  const STILL_RADIUS=12, DWELL_MS=6000, REARM_DIST=25;
+  const MARK_TYPES={nee:{label:"Nee/Nee sticker",color:"#c2362f"},niet:{label:"Niet kunnen bezorgen",color:"#e08a19"},notitie:{label:"Notitie",color:"#1f6feb"}};
 
   const map=L.map("map",{zoomControl:false}).setView(NL,7);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
@@ -175,229 +158,199 @@
   const historyLayer=L.layerGroup().addTo(map);
   const glow=L.polyline([],{color:"#19e07a",weight:16,opacity:.25,lineCap:"round",lineJoin:"round"}).addTo(map);
   const core=L.polyline([],{color:"#19e07a",weight:6,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(map);
+  const markLayer=L.layerGroup().addTo(map);
   let here=null;
 
-  // state
-  let pts=[], distance=0, baseElapsed=0, delivered=0;
-  let routes=[], autoCount=true, showHistory=true;
+  let pts=[], distance=0, baseElapsed=0, delivered=0, marks=[];
+  let routes=[], autoCount=true, showHistory=true, dwellS=6, stillRadius=12;
   let tracking=false, watchId=null, wakeLock=null, startClock=0, tick=null, viewing=false;
-  // stop-detectie
   let recent=[], stopCounted=true, countedAt=null;
-
   const $=id=>document.getElementById(id);
 
   // ---------- opslag ----------
-  function putKey(key,val){const d=JSON.stringify(val);
-    try{if(window.storage&&window.storage.set){window.storage.set(key,d,false);return;}}catch(e){}
-    try{localStorage.setItem(key,d);}catch(e){}}
-  async function getKey(key){
-    try{if(window.storage&&window.storage.get){const r=await window.storage.get(key,false);return r&&r.value?r.value:null;}}catch(e){}
-    try{return localStorage.getItem(key);}catch(e){return null;}}
-  function saveActive(){putKey(K_ACTIVE,{pts,distance,baseElapsed,delivered});}
+  function putKey(k,v){const d=JSON.stringify(v);try{if(window.storage&&window.storage.set){window.storage.set(k,d,false);return;}}catch(e){}try{localStorage.setItem(k,d);}catch(e){}}
+  async function getKey(k){try{if(window.storage&&window.storage.get){const r=await window.storage.get(k,false);return r&&r.value?r.value:null;}}catch(e){}try{return localStorage.getItem(k);}catch(e){return null;}}
+  function saveActive(){putKey(K_ACTIVE,{pts,distance,baseElapsed,delivered,marks});}
   function saveRoutes(){putKey(K_ROUTES,routes);}
-  function saveAuto(){putKey(K_AUTO,{autoCount});}
-  function saveHist(){putKey(K_HIST,{showHistory});}
+  function saveSet(){putKey(K_SET,{autoCount,showHistory,dwellS,stillRadius});}
 
   async function loadAll(){
     let a=await getKey(K_ACTIVE);
-    if(a){try{const d=JSON.parse(a);pts=d.pts||[];distance=d.distance||0;baseElapsed=d.baseElapsed||0;delivered=d.delivered||0;}catch(e){}}
+    if(a){try{const d=JSON.parse(a);pts=d.pts||[];distance=d.distance||0;baseElapsed=d.baseElapsed||0;delivered=d.delivered||0;marks=d.marks||[];}catch(e){}}
     let r=await getKey(K_ROUTES); if(r){try{routes=JSON.parse(r)||[];}catch(e){}}
-    // herstel: oude route (v1) eenmalig terugzetten als opgeslagen route
-    try{
-      const flag=await getKey("flyer:recovered:v1");
-      if(!flag){
-        const o=await getKey(K_OLD);
-        if(o){const d=JSON.parse(o);
-          if(d&&d.pts&&d.pts.length){
-            routes.unshift({id:Date.now(),date:new Date().toISOString(),pts:d.pts,distance:d.distance||0,durationMs:d.baseElapsed||0,delivered:0});
-            saveRoutes();
-          }
-        }
-        putKey("flyer:recovered:v1",{done:true});
-      }
-    }catch(e){}
-    let au=await getKey(K_AUTO); if(au){try{autoCount=JSON.parse(au).autoCount!==false;}catch(e){}}
-    let h=await getKey(K_HIST); if(h){try{showHistory=JSON.parse(h).showHistory!==false;}catch(e){}}
+    // herstel oude route (v1) eenmalig
+    try{const flag=await getKey("flyer:recovered:v1");
+      if(!flag){const o=await getKey(K_OLD);
+        if(o){const d=JSON.parse(o);if(d&&d.pts&&d.pts.length){routes.unshift({id:Date.now(),date:new Date().toISOString(),pts:d.pts,distance:d.distance||0,durationMs:d.baseElapsed||0,delivered:0,marks:[]});saveRoutes();}}
+        putKey("flyer:recovered:v1",{done:true});}}catch(e){}
+    // instellingen
+    let s=await getKey(K_SET);
+    if(s){try{const d=JSON.parse(s);autoCount=d.autoCount!==false;showHistory=d.showHistory!==false;dwellS=d.dwellS||6;stillRadius=d.stillRadius||12;}catch(e){}}
+    else{let au=await getKey(K_AUTO);if(au){try{autoCount=JSON.parse(au).autoCount!==false;}catch(e){}}
+         let h=await getKey(K_HIST);if(h){try{showHistory=JSON.parse(h).showHistory!==false;}catch(e){}}}
     $("autoSwitch").classList.toggle("on",autoCount);
     $("histSwitch").classList.toggle("on",showHistory);
-    renderHistory();
-    redraw(); updateStats();
+    $("dwellSlider").value=dwellS;$("dwellVal").textContent=dwellS+" s";
+    $("radSlider").value=stillRadius;$("radVal").textContent=stillRadius+" m";
+    renderHistory();renderMarks();redraw();updateStats();
     if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],16);placeHere(l.lat,l.lng);}
     else if(routes.length&&routes[0].pts&&routes[0].pts.length){const l=routes[0].pts[routes[0].pts.length-1];map.setView([l.lat,l.lng],14);}
   }
 
-  // ---------- tekenen ----------
   function redraw(){const ll=pts.map(p=>[p.lat,p.lng]);glow.setLatLngs(ll);core.setLatLngs(ll);}
-  function renderHistory(){
-    historyLayer.clearLayers();
-    if(!showHistory)return;
-    routes.forEach(rt=>{
-      if(!rt.pts||rt.pts.length<2)return;
-      const ll=rt.pts.map(p=>[p.lat,p.lng]);
+  function renderHistory(){historyLayer.clearLayers();if(!showHistory)return;
+    routes.forEach(rt=>{if(!rt.pts||rt.pts.length<2)return;const ll=rt.pts.map(p=>[p.lat,p.lng]);
       L.polyline(ll,{color:"#5b8c7b",weight:11,opacity:.12,lineCap:"round",lineJoin:"round"}).addTo(historyLayer);
-      L.polyline(ll,{color:"#5b8c7b",weight:5,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(historyLayer);
-    });
-  }
-  function placeHere(lat,lng){
-    if(!here){here=L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:3,fillColor:"#10221b",fillOpacity:1}).addTo(map);}
-    else here.setLatLng([lat,lng]);}
+      L.polyline(ll,{color:"#5b8c7b",weight:5,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(historyLayer);});}
+  function placeHere(lat,lng){if(!here){here=L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:3,fillColor:"#10221b",fillOpacity:1}).addTo(map);}else here.setLatLng([lat,lng]);}
 
-  function haversine(a,b){const R=6371000,toR=x=>x*Math.PI/180;
-    const dLat=toR(b.lat-a.lat),dLng=toR(b.lng-a.lng);
-    const s=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
-    return 2*R*Math.asin(Math.sqrt(s));}
+  function markDot(m,i,active){const t=MARK_TYPES[m.type]||MARK_TYPES.notitie;
+    const cm=L.circleMarker([m.lat,m.lng],{radius:8,color:"#fff",weight:3,fillColor:t.color,fillOpacity:1}).addTo(markLayer);
+    if(active){cm.bindPopup('<b>'+t.label+'</b><br><a href="#" class="dm">verwijderen</a>');
+      cm.on("popupopen",e=>{const el=e.popup.getElement().querySelector(".dm");if(el)el.onclick=ev=>{ev.preventDefault();marks.splice(i,1);saveActive();renderMarks();cm.closePopup();};});}
+    else cm.bindPopup('<b>'+t.label+'</b>');}
+  function renderMarks(){markLayer.clearLayers();marks.forEach((m,i)=>markDot(m,i,true));}
 
-  function fmtTime(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
-    return h?`${h}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`:`${m}:${String(ss).padStart(2,"0")}`;}
+  function haversine(a,b){const R=6371000,toR=x=>x*Math.PI/180;const dLat=toR(b.lat-a.lat),dLng=toR(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
+  function fmtTime(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;return h?h+":"+String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0"):m+":"+String(ss).padStart(2,"0");}
+  function km(m){return (m/1000).toFixed(2).replace(".",",");}
   function elapsedMs(){return baseElapsed+(tracking?Date.now()-startClock:0);}
-  function updateStats(){
-    $("dist").innerHTML=(distance/1000).toFixed(2).replace(".",",")+'<small> km</small>';
-    $("deliv").textContent=delivered;
-    $("time").textContent=fmtTime(elapsedMs());}
-
+  function updateStats(){$("dist").innerHTML=km(distance)+'<small> km</small>';$("deliv").textContent=delivered;$("time").textContent=fmtTime(elapsedMs());}
   function flashDeliv(){const t=$("bez");t.classList.remove("flash");void t.offsetWidth;t.classList.add("flash");}
 
   // ---------- stop-detectie ----------
-  function detectStop(p){
-    if(!autoCount) return;
-    if(countedAt===null){countedAt=p;}
-    recent.push(p);
-    while(recent.length&&(p.t-recent[0].t)>DWELL_MS) recent.shift();
-    if(stopCounted&&haversine(p,countedAt)>REARM_DIST){stopCounted=false;}
-    if(!stopCounted&&recent.length>=2&&(p.t-recent[0].t)>=DWELL_MS){
-      let still=true;
-      for(const q of recent){if(haversine(q,p)>STILL_RADIUS){still=false;break;}}
-      if(still){delivered++;stopCounted=true;countedAt=p;flashDeliv();updateStats();saveActive();}
-    }
-  }
+  function detectStop(p){if(!autoCount)return;const DWELL=dwellS*1000,REARM=stillRadius+13;
+    if(countedAt===null){countedAt=p;}recent.push(p);
+    while(recent.length&&(p.t-recent[0].t)>DWELL)recent.shift();
+    if(stopCounted&&haversine(p,countedAt)>REARM){stopCounted=false;}
+    if(!stopCounted&&recent.length>=2&&(p.t-recent[0].t)>=DWELL){let still=true;
+      for(const q of recent){if(haversine(q,p)>stillRadius){still=false;break;}}
+      if(still){delivered++;stopCounted=true;countedAt=p;flashDeliv();updateStats();saveActive();}}}
 
-  // ---------- GPS ----------
-  function onPos(pos){
-    const {latitude:lat,longitude:lng,accuracy}=pos.coords;
+  function onPos(pos){const {latitude:lat,longitude:lng,accuracy}=pos.coords;
     if(accuracy&&accuracy>60){placeHere(lat,lng);return;}
-    const p={lat,lng,t:Date.now()};
-    detectStop(p);
-    if(pts.length){const d=haversine(pts[pts.length-1],p);if(d<4){placeHere(lat,lng);return;}distance+=d;}
-    else{map.setView([lat,lng],17);}
-    pts.push(p);redraw();placeHere(lat,lng);updateStats();saveActive();
-  }
-  function onErr(err){
-    let b="Onbekende fout bij het ophalen van je locatie.";
-    if(err.code===1)b="De app heeft geen toestemming voor je locatie. Sta locatie toe en probeer opnieuw.";
-    else if(err.code===2)b="Je locatie is nu niet beschikbaar. Controleer of locatievoorzieningen aanstaan.";
-    else if(err.code===3)b="Het duurde te lang om een locatie te vinden. Probeer het buiten opnieuw.";
-    showErr("Geen locatie",b);stop();
-  }
+    const p={lat,lng,t:Date.now()};detectStop(p);
+    if(pts.length){const d=haversine(pts[pts.length-1],p);if(d<4){placeHere(lat,lng);return;}distance+=d;}else{map.setView([lat,lng],17);}
+    pts.push(p);redraw();placeHere(lat,lng);updateStats();saveActive();}
+  function onErr(err){let b="Onbekende fout bij het ophalen van je locatie.";
+    if(err.code===1)b="De app heeft geen toestemming voor je locatie.";
+    else if(err.code===2)b="Je locatie is nu niet beschikbaar.";
+    else if(err.code===3)b="Het duurde te lang om een locatie te vinden.";
+    showErr("Geen locatie",b);stop();}
   async function requestWake(){try{if("wakeLock"in navigator){wakeLock=await navigator.wakeLock.request("screen");}}catch(e){}}
   function releaseWake(){try{wakeLock&&wakeLock.release();}catch(e){}wakeLock=null;}
   document.addEventListener("visibilitychange",()=>{if(tracking&&document.visibilityState==="visible")requestWake();});
 
-  function start(){
-    if(viewing) backToLive();
+  function start(){if(viewing)backToLive();
     if(!("geolocation"in navigator)){showErr("Geen GPS","Dit apparaat ondersteunt geen locatie.");return;}
-    tracking=true;startClock=Date.now();
-    recent=[];stopCounted=true;countedAt=null;
+    tracking=true;startClock=Date.now();recent=[];stopCounted=true;countedAt=null;
     watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:20000});
-    requestWake();tick=setInterval(updateStats,1000);setLive(true);
-  }
-  function stop(){
-    tracking=false;
-    if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
-    if(tick){clearInterval(tick);tick=null;}
-    baseElapsed+=startClock?Date.now()-startClock:0;startClock=0;
-    releaseWake();saveActive();setLive(false);updateStats();
-  }
-  function setLive(on){
-    $("status").classList.toggle("live",on);
+    requestWake();tick=setInterval(updateStats,1000);setLive(true);}
+  function stop(){tracking=false;if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    if(tick){clearInterval(tick);tick=null;}baseElapsed+=startClock?Date.now()-startClock:0;startClock=0;
+    releaseWake();saveActive();setLive(false);updateStats();}
+  function setLive(on){$("status").classList.toggle("live",on);
     $("statusText").textContent=on?"Route wordt bijgehouden":(pts.length?"Gepauzeerd":"Klaar om te starten");
-    $("toggle").classList.toggle("live",on);
-    $("toggleLabel").textContent=on?"Pauze":(pts.length?"Hervat route":"Start route");
-  }
+    $("toggle").classList.toggle("live",on);$("toggleLabel").textContent=on?"Pauze":(pts.length?"Hervat route":"Start route");}
 
-  // ---------- routes opslaan / beheren ----------
+  // ---------- markeren ----------
+  function addMark(type){closeAll();
+    const drop=(lat,lng)=>{marks.push({lat,lng,type,t:Date.now()});saveActive();renderMarks();};
+    if(here){const ll=here.getLatLng();drop(ll.lat,ll.lng);}
+    else if(navigator.geolocation){navigator.geolocation.getCurrentPosition(p=>drop(p.coords.latitude,p.coords.longitude),()=>showErr("Geen locatie","Kon je positie niet bepalen voor de markering."),{enableHighAccuracy:true});}
+    else showErr("Geen locatie","Geen GPS beschikbaar.");}
+
+  // ---------- routes ----------
   function fmtDate(iso){try{return new Date(iso).toLocaleString("nl-NL",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;}}
-  function finishRoute(){
-    if(tracking) stop();
-    if(!pts.length){closeAll();return;}
-    routes.unshift({id:Date.now(),date:new Date().toISOString(),pts:pts.slice(),distance,durationMs:baseElapsed,delivered});
-    saveRoutes();
-    pts=[];distance=0;baseElapsed=0;delivered=0;
-    recent=[];stopCounted=true;countedAt=null;
+  async function nameRoute(route){try{let la=0,lo=0;route.pts.forEach(p=>{la+=p.lat;lo+=p.lng;});la/=route.pts.length;lo/=route.pts.length;
+    const u="https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&addressdetails=1&lat="+la+"&lon="+lo;
+    const res=await fetch(u);if(!res.ok)return;const j=await res.json();const a=j.address||{};
+    const nm=a.suburb||a.neighbourhood||a.quarter||a.city_district||a.residential||a.road||a.town||a.village||a.municipality||a.city;
+    if(nm){route.name=nm;saveRoutes();renderRoutes();}}catch(e){}}
+  function finishRoute(){if(tracking)stop();if(!pts.length){closeAll();return;}
+    const route={id:Date.now(),date:new Date().toISOString(),pts:pts.slice(),distance,durationMs:baseElapsed,delivered,marks:marks.slice()};
+    routes.unshift(route);saveRoutes();
+    pts=[];distance=0;baseElapsed=0;delivered=0;marks=[];recent=[];stopCounted=true;countedAt=null;
     if(here){map.removeLayer(here);here=null;}
-    renderHistory();redraw();updateStats();saveActive();setLive(false);closeAll();
-  }
-  function clearActive(){
-    if(tracking) stop();
-    pts=[];distance=0;baseElapsed=0;delivered=0;
-    recent=[];stopCounted=true;countedAt=null;
-    if(here){map.removeLayer(here);here=null;}
-    redraw();updateStats();saveActive();setLive(false);
-  }
-  function renderRoutes(){
-    const box=$("routesList");box.innerHTML="";
+    renderMarks();renderHistory();redraw();updateStats();saveActive();setLive(false);closeAll();
+    nameRoute(route);}
+  function clearActive(){if(tracking)stop();pts=[];distance=0;baseElapsed=0;delivered=0;marks=[];recent=[];stopCounted=true;countedAt=null;
+    if(here){map.removeLayer(here);here=null;}renderMarks();redraw();updateStats();saveActive();setLive(false);}
+
+  function renderTotals(){const now=new Date();const sw=new Date(now);sw.setDate(sw.getDate()-((sw.getDay()+6)%7));sw.setHours(0,0,0,0);
+    const sm=new Date(now.getFullYear(),now.getMonth(),1);let wk={k:0,b:0,n:0},mo={k:0,b:0,n:0};
+    routes.forEach(r=>{const d=new Date(r.date);if(d>=sm){mo.k+=r.distance;mo.b+=r.delivered;mo.n++;}if(d>=sw){wk.k+=r.distance;wk.b+=r.delivered;wk.n++;}});
+    $("totals").innerHTML='<div class="tot"><div class="tl">Deze week</div><div class="tv">'+(wk.k/1000).toFixed(1).replace(".",",")+' km · '+wk.b+' bezorgd · '+wk.n+' routes</div></div>'+
+      '<div class="tot"><div class="tl">Deze maand</div><div class="tv">'+(mo.k/1000).toFixed(1).replace(".",",")+' km · '+mo.b+' bezorgd · '+mo.n+' routes</div></div>';}
+  function renderRoutes(){const box=$("routesList");box.innerHTML="";
     if(!routes.length){box.innerHTML='<div class="empty">Nog geen opgeslagen routes.</div>';return;}
-    routes.forEach(r=>{
-      const item=document.createElement("div");item.className="route-item";
+    routes.forEach(r=>{const item=document.createElement("div");item.className="route-item";
       const info=document.createElement("div");info.className="info";
-      info.innerHTML=`<div class="d">${fmtDate(r.date)}</div><div class="m">${(r.distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(r.durationMs)} · ${r.delivered} bezorgd</div>`;
+      info.innerHTML='<div class="d">'+(r.name?r.name:"Route")+'</div><div class="m">'+fmtDate(r.date)+' · '+km(r.distance)+' km · '+fmtTime(r.durationMs)+' · '+r.delivered+' bezorgd</div>';
       info.onclick=()=>viewRoute(r);
-      const del=document.createElement("button");del.className="del";del.textContent="×";
-      del.onclick=()=>{routes=routes.filter(x=>x.id!==r.id);saveRoutes();renderRoutes();renderHistory();};
-      item.appendChild(info);item.appendChild(del);box.appendChild(item);
-    });
-  }
-  function viewRoute(r){
-    viewing=true;document.body.classList.add("viewing");
-    if(tracking) stop();
+      const ed=document.createElement("button");ed.className="ic";ed.textContent="✏️";
+      ed.onclick=()=>{const nn=prompt("Naam voor deze route:",r.name||"");if(nn!==null){r.name=nn.trim()||undefined;saveRoutes();renderRoutes();}};
+      const del=document.createElement("button");del.className="ic del";del.textContent="×";
+      del.onclick=()=>{routes=routes.filter(x=>x.id!==r.id);saveRoutes();renderRoutes();renderTotals();renderHistory();};
+      item.appendChild(info);item.appendChild(ed);item.appendChild(del);box.appendChild(item);});}
+  function viewRoute(r){viewing=true;document.body.classList.add("viewing");if(tracking)stop();
     const ll=r.pts.map(p=>[p.lat,p.lng]);glow.setLatLngs(ll);core.setLatLngs(ll);
     if(here){map.removeLayer(here);here=null;}
+    markLayer.clearLayers();(r.marks||[]).forEach((m,i)=>markDot(m,i,false));
     if(ll.length)map.fitBounds(ll,{padding:[50,50]});
-    $("bannerText").innerHTML=`<div class="bt">${fmtDate(r.date)}<small>${(r.distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(r.durationMs)} · ${r.delivered} bezorgd</small></div>`;
-    $("banner").classList.add("show");closeAll();
-  }
-  function backToLive(){
-    viewing=false;document.body.classList.remove("viewing");$("banner").classList.remove("show");
-    redraw();
-    if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],16);placeHere(l.lat,l.lng);}
-  }
+    $("bannerText").innerHTML='<div class="bt">'+(r.name?r.name:"Route")+'<small>'+fmtDate(r.date)+' · '+km(r.distance)+' km · '+fmtTime(r.durationMs)+' · '+r.delivered+' bezorgd</small></div>';
+    $("banner").classList.add("show");closeAll();}
+  function backToLive(){viewing=false;document.body.classList.remove("viewing");$("banner").classList.remove("show");
+    renderMarks();redraw();if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],16);placeHere(l.lat,l.lng);}}
+
+  // ---------- back-up ----------
+  function exportData(){const data={app:"flyer-route",version:3,exportedAt:new Date().toISOString(),routes,settings:{autoCount,showHistory,dwellS,stillRadius}};
+    const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);
+    const a=document.createElement("a");a.href=url;a.download="flyer-backup-"+new Date().toISOString().slice(0,10)+".json";
+    document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),3000);closeAll();}
+  function importData(file){const fr=new FileReader();fr.onload=()=>{try{const d=JSON.parse(fr.result);
+    const inc=Array.isArray(d.routes)?d.routes:(Array.isArray(d)?d:null);if(!inc){showErr("Importeren","Dit bestand bevat geen routes.");return;}
+    const have=new Set(routes.map(r=>r.id));let added=0;inc.forEach(r=>{if(r&&!have.has(r.id)){routes.push(r);added++;}});
+    routes.sort((a,b)=>new Date(b.date)-new Date(a.date));
+    if(d.settings){autoCount=d.settings.autoCount!==false;showHistory=d.settings.showHistory!==false;dwellS=d.settings.dwellS||dwellS;stillRadius=d.settings.stillRadius||stillRadius;
+      $("autoSwitch").classList.toggle("on",autoCount);$("histSwitch").classList.toggle("on",showHistory);
+      $("dwellSlider").value=dwellS;$("dwellVal").textContent=dwellS+" s";$("radSlider").value=stillRadius;$("radVal").textContent=stillRadius+" m";saveSet();}
+    saveRoutes();renderHistory();renderRoutes();renderTotals();showErr("Importeren",added+" route(s) toegevoegd.");
+  }catch(e){showErr("Importeren","Kon dit bestand niet lezen.");}};fr.readAsText(file);}
 
   // ---------- sheets ----------
-  function closeAll(){["menuSheet","routesSheet","confirmSheet","errSheet"].forEach(i=>$(i).classList.remove("show"));}
-  function openMenu(){
-    const has=pts.length>0;
-    $("finishBtn").disabled=!has;
-    $("finishSub").textContent=has?`${(distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(elapsedMs())} · ${delivered} bezorgd`:"geen route bezig";
-    $("clearBtn").disabled=!has;
-    $("routesSub").textContent=routes.length?`${routes.length} opgeslagen`:"nog geen";
-    $("menuSheet").classList.add("show");
-  }
+  function closeAll(){["menuSheet","routesSheet","markSheet","confirmSheet","errSheet"].forEach(i=>$(i).classList.remove("show"));}
+  function openMenu(){const has=pts.length>0;$("finishBtn").disabled=!has;
+    $("finishSub").textContent=has?(km(distance)+" km · "+fmtTime(elapsedMs())+" · "+delivered+" bezorgd"):"geen route bezig";
+    $("clearBtn").disabled=!has;$("routesSub").textContent=routes.length?routes.length+" opgeslagen":"nog geen";
+    $("menuSheet").classList.add("show");}
   function showErr(t,b){$("errTitle").textContent=t;$("errBody").textContent=b;$("errSheet").classList.add("show");}
 
   // ---------- knoppen ----------
   $("toggle").onclick=()=>tracking?stop():start();
-  $("center").onclick=()=>{
-    if(viewing)return;
-    if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],17);}
-    else if(navigator.geolocation)navigator.geolocation.getCurrentPosition(
-      p=>{map.setView([p.coords.latitude,p.coords.longitude],17);placeHere(p.coords.latitude,p.coords.longitude);},()=>{},{enableHighAccuracy:true});
-  };
-  $("menuBtn").onclick=openMenu;
-  $("menuClose").onclick=closeAll;
+  $("center").onclick=()=>{if(viewing)return;if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],17);}
+    else if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>{map.setView([p.coords.latitude,p.coords.longitude],17);placeHere(p.coords.latitude,p.coords.longitude);},()=>{},{enableHighAccuracy:true});};
+  $("markBtn").onclick=()=>{if(viewing)return;$("markSheet").classList.add("show");};
+  document.querySelectorAll("[data-mark]").forEach(b=>b.onclick=()=>addMark(b.getAttribute("data-mark")));
+  $("markClose").onclick=closeAll;
+  $("menuBtn").onclick=openMenu;$("menuClose").onclick=closeAll;
   $("finishBtn").onclick=finishRoute;
-  $("routesBtn").onclick=()=>{renderRoutes();$("menuSheet").classList.remove("show");$("routesSheet").classList.add("show");};
-  $("routesClose").onclick=closeAll;
-  $("backLive").onclick=backToLive;
-  $("autoSwitch").onclick=()=>{autoCount=!autoCount;$("autoSwitch").classList.toggle("on",autoCount);saveAuto();};
-  $("histSwitch").onclick=()=>{showHistory=!showHistory;$("histSwitch").classList.toggle("on",showHistory);saveHist();renderHistory();};
+  $("routesBtn").onclick=()=>{renderTotals();renderRoutes();$("menuSheet").classList.remove("show");$("routesSheet").classList.add("show");};
+  $("routesClose").onclick=closeAll;$("backLive").onclick=backToLive;
+  $("autoSwitch").onclick=()=>{autoCount=!autoCount;$("autoSwitch").classList.toggle("on",autoCount);saveSet();};
+  $("histSwitch").onclick=()=>{showHistory=!showHistory;$("histSwitch").classList.toggle("on",showHistory);saveSet();renderHistory();};
+  $("dwellSlider").oninput=e=>{dwellS=+e.target.value;$("dwellVal").textContent=dwellS+" s";saveSet();};
+  $("radSlider").oninput=e=>{stillRadius=+e.target.value;$("radVal").textContent=stillRadius+" m";saveSet();};
+  $("exportBtn").onclick=exportData;
+  $("importBtn").onclick=()=>$("importFile").click();
+  $("importFile").onchange=e=>{if(e.target.files&&e.target.files[0])importData(e.target.files[0]);e.target.value="";};
   $("clearBtn").onclick=()=>{$("menuSheet").classList.remove("show");$("confirmSheet").classList.add("show");};
-  $("confirmCancel").onclick=closeAll;
-  $("confirmClear").onclick=()=>{clearActive();closeAll();};
+  $("confirmCancel").onclick=closeAll;$("confirmClear").onclick=()=>{clearActive();closeAll();};
   $("errOk").onclick=closeAll;
 
-  // handmatig bijsturen: tik = +1, lang indrukken = -1
   function adjust(n){delivered=Math.max(0,delivered+n);flashDeliv();updateStats();saveActive();}
-  let lpTimer=null,lpFired=false,touched=0;
-  const bez=$("bez");
+  let lpTimer=null,lpFired=false,touched=0;const bez=$("bez");
   bez.addEventListener("touchstart",()=>{touched=Date.now();lpFired=false;lpTimer=setTimeout(()=>{lpFired=true;adjust(-1);},550);},{passive:true});
   bez.addEventListener("touchmove",()=>clearTimeout(lpTimer),{passive:true});
   bez.addEventListener("touchend",e=>{e.preventDefault();clearTimeout(lpTimer);if(!lpFired)adjust(1);},{passive:false});
