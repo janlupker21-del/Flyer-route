@@ -167,9 +167,25 @@
   let recent=[], stopCounted=true, countedAt=null;
   const $=id=>document.getElementById(id);
 
-  // ---------- opslag ----------
-  function putKey(k,v){const d=JSON.stringify(v);try{if(window.storage&&window.storage.set){window.storage.set(k,d,false);return;}}catch(e){}try{localStorage.setItem(k,d);}catch(e){}}
-  async function getKey(k){try{if(window.storage&&window.storage.get){const r=await window.storage.get(k,false);return r&&r.value?r.value:null;}}catch(e){}try{return localStorage.getItem(k);}catch(e){return null;}}
+  // ---------- opslag: lokale database (IndexedDB) met localStorage als reserve ----------
+  const HAS_WS=!!(window.storage&&window.storage.get);
+  try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
+  let _dbp=null;
+  function _db(){if(_dbp)return _dbp;_dbp=new Promise((res,rej)=>{try{const rq=indexedDB.open("flyerDB",1);
+    rq.onupgradeneeded=()=>{const d=rq.result;if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv",{keyPath:"k"});};
+    rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);}catch(e){rej(e);}});return _dbp;}
+  function _idbGet(k){return _db().then(d=>new Promise((res,rej)=>{const t=d.transaction("kv","readonly").objectStore("kv").get(k);t.onsuccess=()=>res(t.result?t.result.v:null);t.onerror=()=>rej(t.error);}));}
+  function _idbSet(k,v){return _db().then(d=>new Promise((res,rej)=>{const tx=d.transaction("kv","readwrite");tx.objectStore("kv").put({k,v});tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
+  function putKey(k,v){const d=JSON.stringify(v);
+    try{if(HAS_WS){window.storage.set(k,d,false);return;}}catch(e){}
+    if(window.indexedDB){_idbSet(k,d).catch(()=>{try{localStorage.setItem(k,d);}catch(e){}});}
+    else{try{localStorage.setItem(k,d);}catch(e){}}}
+  async function getKey(k){
+    try{if(HAS_WS){const r=await window.storage.get(k,false);return r&&r.value?r.value:null;}}catch(e){}
+    if(window.indexedDB){try{let v=await _idbGet(k);
+      if(v===null){try{const ls=localStorage.getItem(k);if(ls!==null){await _idbSet(k,ls);return ls;}}catch(e){}}
+      return v;}catch(e){}}
+    try{return localStorage.getItem(k);}catch(e){return null;}}
   function saveActive(){putKey(K_ACTIVE,{pts,distance,baseElapsed,delivered,marks});}
   function saveRoutes(){putKey(K_ROUTES,routes);}
   function saveSet(){putKey(K_SET,{autoCount,showHistory,dwellS,stillRadius});}
