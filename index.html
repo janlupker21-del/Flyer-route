@@ -127,6 +127,7 @@
     <button class="menu-item" id="finishBtn">Route afronden &amp; opslaan<span class="sub" id="finishSub">—</span></button>
     <button class="menu-item" id="routesBtn">Opgeslagen routes<span class="sub" id="routesSub">—</span></button>
     <div class="toggle-row"><span>Automatisch tellen bij stilstaan</span><div class="switch on" id="autoSwitch"></div></div>
+    <div class="toggle-row"><span>Oude routes op de kaart tonen</span><div class="switch on" id="histSwitch"></div></div>
     <button class="menu-item danger" id="clearBtn">Huidige route wissen</button>
     <div class="row"><button class="btn-ghost" id="menuClose">Sluiten</button></div>
   </div>
@@ -163,7 +164,7 @@
 <script>
 (function(){
   "use strict";
-  const K_ACTIVE="flyer:active:v2", K_ROUTES="flyer:routes:v2", K_AUTO="flyer:auto:v2", K_OLD="flyer:route:v1";
+  const K_ACTIVE="flyer:active:v2", K_ROUTES="flyer:routes:v2", K_AUTO="flyer:auto:v2", K_HIST="flyer:showhist:v2", K_OLD="flyer:route:v1";
   const NL=[52.1326,5.2913];
   // detectie-instellingen
   const STILL_RADIUS=12, DWELL_MS=6000, REARM_DIST=25;
@@ -171,13 +172,14 @@
   const map=L.map("map",{zoomControl:false}).setView(NL,7);
   L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
   L.control.zoom({position:"topright"}).addTo(map);
+  const historyLayer=L.layerGroup().addTo(map);
   const glow=L.polyline([],{color:"#19e07a",weight:16,opacity:.25,lineCap:"round",lineJoin:"round"}).addTo(map);
   const core=L.polyline([],{color:"#19e07a",weight:6,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(map);
   let here=null;
 
   // state
   let pts=[], distance=0, baseElapsed=0, delivered=0;
-  let routes=[], autoCount=true;
+  let routes=[], autoCount=true, showHistory=true;
   let tracking=false, watchId=null, wakeLock=null, startClock=0, tick=null, viewing=false;
   // stop-detectie
   let recent=[], stopCounted=true, countedAt=null;
@@ -194,23 +196,48 @@
   function saveActive(){putKey(K_ACTIVE,{pts,distance,baseElapsed,delivered});}
   function saveRoutes(){putKey(K_ROUTES,routes);}
   function saveAuto(){putKey(K_AUTO,{autoCount});}
+  function saveHist(){putKey(K_HIST,{showHistory});}
 
   async function loadAll(){
     let a=await getKey(K_ACTIVE);
     if(a){try{const d=JSON.parse(a);pts=d.pts||[];distance=d.distance||0;baseElapsed=d.baseElapsed||0;delivered=d.delivered||0;}catch(e){}}
-    else{ // migratie van oude versie
-      let o=await getKey(K_OLD);
-      if(o){try{const d=JSON.parse(o);pts=d.pts||[];distance=d.distance||0;baseElapsed=d.baseElapsed||0;}catch(e){}}
-    }
     let r=await getKey(K_ROUTES); if(r){try{routes=JSON.parse(r)||[];}catch(e){}}
+    // herstel: oude route (v1) eenmalig terugzetten als opgeslagen route
+    try{
+      const flag=await getKey("flyer:recovered:v1");
+      if(!flag){
+        const o=await getKey(K_OLD);
+        if(o){const d=JSON.parse(o);
+          if(d&&d.pts&&d.pts.length){
+            routes.unshift({id:Date.now(),date:new Date().toISOString(),pts:d.pts,distance:d.distance||0,durationMs:d.baseElapsed||0,delivered:0});
+            saveRoutes();
+          }
+        }
+        putKey("flyer:recovered:v1",{done:true});
+      }
+    }catch(e){}
     let au=await getKey(K_AUTO); if(au){try{autoCount=JSON.parse(au).autoCount!==false;}catch(e){}}
+    let h=await getKey(K_HIST); if(h){try{showHistory=JSON.parse(h).showHistory!==false;}catch(e){}}
     $("autoSwitch").classList.toggle("on",autoCount);
+    $("histSwitch").classList.toggle("on",showHistory);
+    renderHistory();
     redraw(); updateStats();
     if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],16);placeHere(l.lat,l.lng);}
+    else if(routes.length&&routes[0].pts&&routes[0].pts.length){const l=routes[0].pts[routes[0].pts.length-1];map.setView([l.lat,l.lng],14);}
   }
 
   // ---------- tekenen ----------
   function redraw(){const ll=pts.map(p=>[p.lat,p.lng]);glow.setLatLngs(ll);core.setLatLngs(ll);}
+  function renderHistory(){
+    historyLayer.clearLayers();
+    if(!showHistory)return;
+    routes.forEach(rt=>{
+      if(!rt.pts||rt.pts.length<2)return;
+      const ll=rt.pts.map(p=>[p.lat,p.lng]);
+      L.polyline(ll,{color:"#5b8c7b",weight:11,opacity:.12,lineCap:"round",lineJoin:"round"}).addTo(historyLayer);
+      L.polyline(ll,{color:"#5b8c7b",weight:5,opacity:.6,lineCap:"round",lineJoin:"round"}).addTo(historyLayer);
+    });
+  }
   function placeHere(lat,lng){
     if(!here){here=L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:3,fillColor:"#10221b",fillOpacity:1}).addTo(map);}
     else here.setLatLng([lat,lng]);}
@@ -297,7 +324,7 @@
     pts=[];distance=0;baseElapsed=0;delivered=0;
     recent=[];stopCounted=true;countedAt=null;
     if(here){map.removeLayer(here);here=null;}
-    redraw();updateStats();saveActive();setLive(false);closeAll();
+    renderHistory();redraw();updateStats();saveActive();setLive(false);closeAll();
   }
   function clearActive(){
     if(tracking) stop();
@@ -315,7 +342,7 @@
       info.innerHTML=`<div class="d">${fmtDate(r.date)}</div><div class="m">${(r.distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(r.durationMs)} · ${r.delivered} bezorgd</div>`;
       info.onclick=()=>viewRoute(r);
       const del=document.createElement("button");del.className="del";del.textContent="×";
-      del.onclick=()=>{routes=routes.filter(x=>x.id!==r.id);saveRoutes();renderRoutes();};
+      del.onclick=()=>{routes=routes.filter(x=>x.id!==r.id);saveRoutes();renderRoutes();renderHistory();};
       item.appendChild(info);item.appendChild(del);box.appendChild(item);
     });
   }
@@ -361,6 +388,7 @@
   $("routesClose").onclick=closeAll;
   $("backLive").onclick=backToLive;
   $("autoSwitch").onclick=()=>{autoCount=!autoCount;$("autoSwitch").classList.toggle("on",autoCount);saveAuto();};
+  $("histSwitch").onclick=()=>{showHistory=!showHistory;$("histSwitch").classList.toggle("on",showHistory);saveHist();renderHistory();};
   $("clearBtn").onclick=()=>{$("menuSheet").classList.remove("show");$("confirmSheet").classList.add("show");};
   $("confirmCancel").onclick=closeAll;
   $("confirmClear").onclick=()=>{clearActive();closeAll();};
