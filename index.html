@@ -77,6 +77,12 @@
   .route-item .ic{border:none;width:38px;height:38px;border-radius:10px;font-size:16px;flex:0 0 auto;cursor:pointer;background:rgba(16,34,27,.08);color:var(--ink)}
   .route-item .del{background:rgba(194,54,47,.1);color:#c2362f}
   .empty{opacity:.55;font-size:14px;text-align:center;padding:22px 0}
+  body.drawing .readout, body.drawing .status, body.drawing #markBtn, body.drawing .controls{display:none}
+  .drawhint{position:fixed;z-index:1100;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);background:var(--ink);color:var(--paper);border-radius:14px;padding:11px 12px;display:none;font-size:13px;font-weight:600;box-shadow:var(--shadow);text-align:center}
+  body.drawing .drawhint{display:block}
+  .drawbar{position:fixed;left:0;right:0;bottom:0;z-index:1100;padding:14px 14px calc(env(safe-area-inset-bottom) + 14px);display:none;gap:12px}
+  body.drawing .drawbar{display:flex}
+  .drawbar button{flex:1;height:54px;border:none;border-radius:16px;font-family:var(--sans);font-size:15px;font-weight:700;box-shadow:var(--shadow);cursor:pointer}
   .leaflet-control-attribution{font-size:9px;opacity:.6}
   .leaflet-bottom{margin-bottom:84px}
 </style>
@@ -91,6 +97,13 @@
 <div class="status" id="status"><span class="dot"></span><span id="statusText">Klaar om te starten</span></div>
 <div class="banner" id="banner"><div class="bt" id="bannerText">Opgeslagen route</div><button id="backLive">Terug naar live</button></div>
 
+<div class="drawhint" id="drawHint">Tik op de kaart langs je route</div>
+<div class="drawbar" id="drawBar">
+  <button class="btn-ghost" id="drawCancel">Stop</button>
+  <button class="btn-ghost" id="drawUndo">Stap terug</button>
+  <button class="btn-primary" id="drawSave">Klaar</button>
+</div>
+
 <button class="fab" id="markBtn" title="Markering plaatsen">📍</button>
 
 <div class="controls">
@@ -103,6 +116,7 @@
   <h2>Menu</h2>
   <button class="menu-item" id="finishBtn">Route afronden &amp; opslaan<span class="sub" id="finishSub">—</span></button>
   <button class="menu-item" id="routesBtn">Opgeslagen routes<span class="sub" id="routesSub">—</span></button>
+  <button class="menu-item" id="drawBtn">Route handmatig tekenen<span class="sub">Tik je route na op de kaart</span></button>
   <div class="toggle-row"><span>Automatisch tellen bij stilstaan</span><div class="switch on" id="autoSwitch"></div></div>
   <div class="toggle-row"><span>Oude routes op de kaart tonen</span><div class="switch on" id="histSwitch"></div></div>
   <div class="section">Gevoeligheid automatisch tellen</div>
@@ -167,25 +181,10 @@
   let recent=[], stopCounted=true, countedAt=null;
   const $=id=>document.getElementById(id);
 
-  // ---------- opslag: lokale database (IndexedDB) met localStorage als reserve ----------
-  const HAS_WS=!!(window.storage&&window.storage.get);
+  // ---------- opslag: lokaal op het toestel (bewezen werkend) ----------
   try{if(navigator.storage&&navigator.storage.persist)navigator.storage.persist();}catch(e){}
-  let _dbp=null;
-  function _db(){if(_dbp)return _dbp;_dbp=new Promise((res,rej)=>{try{const rq=indexedDB.open("flyerDB",1);
-    rq.onupgradeneeded=()=>{const d=rq.result;if(!d.objectStoreNames.contains("kv"))d.createObjectStore("kv",{keyPath:"k"});};
-    rq.onsuccess=()=>res(rq.result);rq.onerror=()=>rej(rq.error);}catch(e){rej(e);}});return _dbp;}
-  function _idbGet(k){return _db().then(d=>new Promise((res,rej)=>{const t=d.transaction("kv","readonly").objectStore("kv").get(k);t.onsuccess=()=>res(t.result?t.result.v:null);t.onerror=()=>rej(t.error);}));}
-  function _idbSet(k,v){return _db().then(d=>new Promise((res,rej)=>{const tx=d.transaction("kv","readwrite");tx.objectStore("kv").put({k,v});tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error);}));}
-  function putKey(k,v){const d=JSON.stringify(v);
-    try{if(HAS_WS){window.storage.set(k,d,false);return;}}catch(e){}
-    if(window.indexedDB){_idbSet(k,d).catch(()=>{try{localStorage.setItem(k,d);}catch(e){}});}
-    else{try{localStorage.setItem(k,d);}catch(e){}}}
-  async function getKey(k){
-    try{if(HAS_WS){const r=await window.storage.get(k,false);return r&&r.value?r.value:null;}}catch(e){}
-    if(window.indexedDB){try{let v=await _idbGet(k);
-      if(v===null){try{const ls=localStorage.getItem(k);if(ls!==null){await _idbSet(k,ls);return ls;}}catch(e){}}
-      return v;}catch(e){}}
-    try{return localStorage.getItem(k);}catch(e){return null;}}
+  function putKey(k,v){const d=JSON.stringify(v);try{if(window.storage&&window.storage.set){window.storage.set(k,d,false);return;}}catch(e){}try{localStorage.setItem(k,d);}catch(e){}}
+  async function getKey(k){try{if(window.storage&&window.storage.get){const r=await window.storage.get(k,false);return r&&r.value?r.value:null;}}catch(e){}try{return localStorage.getItem(k);}catch(e){return null;}}
   function saveActive(){putKey(K_ACTIVE,{pts,distance,baseElapsed,delivered,marks});}
   function saveRoutes(){putKey(K_ROUTES,routes);}
   function saveSet(){putKey(K_SET,{autoCount,showHistory,dwellS,stillRadius});}
@@ -371,6 +370,28 @@
   bez.addEventListener("touchmove",()=>clearTimeout(lpTimer),{passive:true});
   bez.addEventListener("touchend",e=>{e.preventDefault();clearTimeout(lpTimer);if(!lpFired)adjust(1);},{passive:false});
   bez.addEventListener("click",()=>{if(Date.now()-touched>700)adjust(1);});
+
+  // ---------- handmatig route tekenen ----------
+  let drawing=false, drawPts=[];
+  const drawLine=L.polyline([],{color:"#1f6feb",weight:5,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(map);
+  const drawDots=L.layerGroup().addTo(map);
+  function drawDist(){let d=0;for(let i=1;i<drawPts.length;i++)d+=haversine(drawPts[i-1],drawPts[i]);return d;}
+  function drawHintUpd(){$("drawHint").textContent=drawPts.length?("Route: "+km(drawDist())+" km — tik voor meer punten"):"Tik op de kaart langs je route";}
+  function drawDotsRender(){drawDots.clearLayers();drawPts.forEach(p=>L.circleMarker([p.lat,p.lng],{radius:4,color:"#fff",weight:2,fillColor:"#1f6feb",fillOpacity:1}).addTo(drawDots));}
+  function startDraw(){closeAll();if(viewing)backToLive();if(tracking)stop();drawing=true;drawPts=[];drawLine.setLatLngs([]);drawDots.clearLayers();document.body.classList.add("drawing");drawHintUpd();
+    if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>{if(drawing&&!drawPts.length)map.setView([p.coords.latitude,p.coords.longitude],16);},()=>{},{enableHighAccuracy:true});}
+  function exitDraw(){drawing=false;document.body.classList.remove("drawing");drawLine.setLatLngs([]);drawDots.clearLayers();drawPts=[];}
+  function undoDraw(){if(!drawPts.length)return;drawPts.pop();drawLine.setLatLngs(drawPts.map(q=>[q.lat,q.lng]));drawDotsRender();drawHintUpd();}
+  function saveDraw(){if(drawPts.length<2){showErr("Route tekenen","Tik eerst minstens twee punten op de kaart langs je route.");return;}
+    const d=drawDist();const nm=prompt("Naam voor deze route:","");
+    let kmIn=prompt("Afstand in km:",(d/1000).toFixed(2).replace(".",","));
+    const dist=Math.round((parseFloat(String(kmIn==null?d/1000:kmIn).replace(",","."))||d/1000)*1000);
+    let minIn=prompt("Duur in minuten (mag leeg):","");const dur=Math.round((parseFloat(String(minIn).replace(",","."))||0)*60000);
+    let bezIn=prompt("Aantal bezorgd (mag leeg):","");const bez=parseInt(bezIn)||0;
+    routes.unshift({id:Date.now(),date:new Date().toISOString(),pts:drawPts.slice(),distance:dist,durationMs:dur,delivered:bez,marks:[],name:(nm&&nm.trim())||undefined});
+    saveRoutes();renderHistory();exitDraw();renderTotals();renderRoutes();$("routesSheet").classList.add("show");}
+  map.on("click",e=>{if(drawing){drawPts.push({lat:e.latlng.lat,lng:e.latlng.lng});drawLine.setLatLngs(drawPts.map(q=>[q.lat,q.lng]));drawDotsRender();drawHintUpd();}});
+  $("drawBtn").onclick=startDraw;$("drawCancel").onclick=exitDraw;$("drawUndo").onclick=undoDraw;$("drawSave").onclick=saveDraw;
 
   loadAll();
 })();
