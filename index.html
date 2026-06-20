@@ -7,12 +7,8 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <style>
   :root{
-    --ink:#10221b;
-    --paper:#f7f6f1;
-    --hi:#19e07a;            /* markeerstift-groen */
-    --hi-glow:rgba(25,224,122,.28);
-    --panel:rgba(247,246,241,.94);
-    --shadow:0 8px 30px rgba(16,34,27,.22);
+    --ink:#10221b; --paper:#f7f6f1; --hi:#19e07a; --hi-glow:rgba(25,224,122,.28);
+    --panel:rgba(247,246,241,.94); --shadow:0 8px 30px rgba(16,34,27,.22);
     --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
     --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   }
@@ -21,80 +17,82 @@
   body{font-family:var(--sans);color:var(--ink);background:var(--paper);overflow:hidden}
   #map{position:fixed;inset:0;z-index:1;background:#e8e7e1}
 
-  /* bovenbalk: instrument-uitlezing */
-  .readout{
-    position:fixed;top:0;left:0;right:0;z-index:1000;
-    padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;
-    display:flex;gap:8px;pointer-events:none;
-  }
-  .stat{
-    flex:1;background:var(--panel);backdrop-filter:blur(12px);
-    border:1px solid rgba(16,34,27,.07);border-radius:14px;
-    padding:9px 12px;box-shadow:var(--shadow);
-  }
+  .readout{position:fixed;top:0;left:0;right:0;z-index:1000;
+    padding:calc(env(safe-area-inset-top) + 10px) 12px 10px;display:flex;gap:8px;pointer-events:none}
+  body.viewing .readout, body.viewing .status{display:none}
+  .stat{flex:1;background:var(--panel);backdrop-filter:blur(12px);border:1px solid rgba(16,34,27,.07);
+    border-radius:14px;padding:9px 12px;box-shadow:var(--shadow)}
+  .stat.tap{pointer-events:auto;cursor:pointer;user-select:none;-webkit-user-select:none}
+  .stat.flash{animation:flash .6s ease}
+  @keyframes flash{0%{background:var(--hi)}100%{background:var(--panel)}}
   .stat .k{font-size:10px;letter-spacing:.12em;text-transform:uppercase;opacity:.55;font-weight:600}
   .stat .v{font-family:var(--mono);font-size:21px;font-weight:600;line-height:1.15;margin-top:2px;font-variant-numeric:tabular-nums}
   .stat .v small{font-size:11px;opacity:.5;font-weight:500}
 
-  /* statuslampje */
-  .status{
-    position:fixed;z-index:1000;left:50%;transform:translateX(-50%);
-    top:calc(env(safe-area-inset-top) + 78px);
-    background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);
-    border-radius:999px;padding:6px 14px 6px 11px;font-size:12.5px;font-weight:600;
-    display:flex;align-items:center;gap:8px;transition:opacity .3s;
-  }
+  .status{position:fixed;z-index:1000;left:50%;transform:translateX(-50%);
+    top:calc(env(safe-area-inset-top) + 78px);background:var(--panel);backdrop-filter:blur(12px);
+    box-shadow:var(--shadow);border-radius:999px;padding:6px 14px 6px 11px;font-size:12.5px;font-weight:600;
+    display:flex;align-items:center;gap:8px;transition:opacity .3s}
   .dot{width:9px;height:9px;border-radius:50%;background:#c2362f}
   .status.live .dot{background:var(--hi);box-shadow:0 0 0 0 var(--hi);animation:pulse 1.6s infinite}
   @keyframes pulse{0%{box-shadow:0 0 0 0 var(--hi-glow)}70%{box-shadow:0 0 0 9px rgba(25,224,122,0)}100%{box-shadow:0 0 0 0 rgba(25,224,122,0)}}
 
-  /* onderbalk: knoppen */
-  .controls{
-    position:fixed;left:0;right:0;bottom:0;z-index:1000;
-    padding:14px 14px calc(env(safe-area-inset-bottom) + 14px);
-    display:flex;align-items:center;gap:12px;
-  }
-  .ctl{
-    width:54px;height:54px;flex:0 0 auto;border:none;border-radius:16px;
-    background:var(--panel);backdrop-filter:blur(12px);box-shadow:var(--shadow);
-    font-size:22px;display:grid;place-items:center;cursor:pointer;color:var(--ink);
-    transition:transform .12s;
-  }
+  .banner{position:fixed;z-index:1100;left:12px;right:12px;top:calc(env(safe-area-inset-top) + 10px);
+    background:var(--ink);color:var(--paper);border-radius:14px;padding:10px 12px;display:none;
+    align-items:center;justify-content:space-between;gap:10px;box-shadow:var(--shadow)}
+  .banner.show{display:flex}
+  .banner .bt{font-size:13px;line-height:1.3}
+  .banner .bt small{display:block;opacity:.7;font-weight:500}
+  .banner button{background:var(--paper);color:var(--ink);border:none;border-radius:10px;
+    padding:9px 13px;font-weight:700;font-size:13px;font-family:var(--sans);flex:0 0 auto}
+
+  .controls{position:fixed;left:0;right:0;bottom:0;z-index:1000;
+    padding:14px 14px calc(env(safe-area-inset-bottom) + 14px);display:flex;align-items:center;gap:12px}
+  .ctl{width:54px;height:54px;flex:0 0 auto;border:none;border-radius:16px;background:var(--panel);
+    backdrop-filter:blur(12px);box-shadow:var(--shadow);font-size:22px;display:grid;place-items:center;
+    cursor:pointer;color:var(--ink);transition:transform .12s}
   .ctl:active{transform:scale(.92)}
-  .ctl.warn{color:#c2362f}
-  .go{
-    flex:1;height:54px;border:none;border-radius:16px;cursor:pointer;
-    background:#1f6feb;color:#fff;font-family:var(--sans);
-    font-size:16px;font-weight:700;letter-spacing:.02em;box-shadow:var(--shadow);
-    display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s,background .2s;
-  }
+  .go{flex:1;height:54px;border:none;border-radius:16px;cursor:pointer;background:#1f6feb;color:#fff;
+    font-family:var(--sans);font-size:16px;font-weight:700;letter-spacing:.02em;box-shadow:var(--shadow);
+    display:flex;align-items:center;justify-content:center;gap:9px;transition:transform .12s,background .2s}
   .go:active{transform:scale(.98)}
   .go.live{background:var(--hi);color:#06301c}
   .go .glyph{width:13px;height:13px;border-radius:3px;background:currentColor}
   .go.live .glyph{border-radius:50%}
 
-  /* overlay (uitleg / fouten) */
-  .sheet{
-    position:fixed;inset:0;z-index:2000;background:rgba(16,34,27,.55);
-    backdrop-filter:blur(4px);display:none;align-items:flex-end;
-  }
+  .sheet{position:fixed;inset:0;z-index:2000;background:rgba(16,34,27,.55);backdrop-filter:blur(4px);
+    display:none;align-items:flex-end}
   .sheet.show{display:flex}
-  .card{
-    background:var(--paper);width:100%;border-radius:22px 22px 0 0;
-    padding:24px 22px calc(env(safe-area-inset-bottom) + 22px);box-shadow:0 -10px 40px rgba(0,0,0,.3);
-    animation:rise .25s ease;
-  }
+  .card{background:var(--paper);width:100%;border-radius:22px 22px 0 0;
+    padding:22px 20px calc(env(safe-area-inset-bottom) + 18px);box-shadow:0 -10px 40px rgba(0,0,0,.3);animation:rise .25s ease}
+  .card.scroll{max-height:74vh;overflow:auto}
   @keyframes rise{from{transform:translateY(40px);opacity:0}to{transform:translateY(0);opacity:1}}
-  .card h2{margin:0 0 6px;font-size:20px}
-  .card p{margin:0 0 16px;font-size:14.5px;line-height:1.5;opacity:.8}
-  .card .row{display:flex;gap:10px}
-  .card button{
-    flex:1;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:600;
-    font-family:var(--sans);cursor:pointer;
-  }
+  .card h2{margin:0 0 14px;font-size:19px}
+  .card .row{display:flex;gap:10px;margin-top:4px}
+  .card .row button{flex:1;border:none;border-radius:13px;padding:14px;font-size:15px;font-weight:600;font-family:var(--sans);cursor:pointer}
   .btn-primary{background:var(--ink);color:var(--paper)}
   .btn-ghost{background:rgba(16,34,27,.07);color:var(--ink)}
   .btn-danger{background:#c2362f;color:#fff}
+
+  .menu-item{display:block;width:100%;text-align:left;border:none;background:rgba(16,34,27,.05);
+    border-radius:13px;padding:14px;font-size:15px;font-weight:600;font-family:var(--sans);color:var(--ink);
+    cursor:pointer;margin-bottom:10px}
+  .menu-item .sub{display:block;font-weight:500;font-size:12.5px;opacity:.6;margin-top:3px}
+  .menu-item.danger{color:#c2362f;background:rgba(194,54,47,.08)}
+  .menu-item:disabled{opacity:.4}
+  .toggle-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px;
+    border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px;font-size:15px;font-weight:600}
+  .switch{width:48px;height:28px;border-radius:999px;background:#c9ccc9;position:relative;transition:background .2s;flex:0 0 auto}
+  .switch.on{background:var(--hi)}
+  .switch::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s}
+  .switch.on::after{transform:translateX(20px)}
+
+  .route-item{display:flex;align-items:center;gap:10px;padding:12px;border-radius:13px;background:rgba(16,34,27,.05);margin-bottom:10px}
+  .route-item .info{flex:1;cursor:pointer}
+  .route-item .info .d{font-weight:700;font-size:14.5px}
+  .route-item .info .m{font-size:12.5px;opacity:.65;margin-top:2px;font-variant-numeric:tabular-nums}
+  .route-item .del{border:none;background:rgba(194,54,47,.1);color:#c2362f;width:38px;height:38px;border-radius:10px;font-size:18px;flex:0 0 auto;cursor:pointer}
+  .empty{opacity:.55;font-size:14px;text-align:center;padding:22px 0}
 
   .leaflet-control-attribution{font-size:9px;opacity:.6}
   .leaflet-bottom{margin-bottom:84px}
@@ -106,26 +104,49 @@
 <div class="readout">
   <div class="stat"><div class="k">Afstand</div><div class="v" id="dist">0,00<small> km</small></div></div>
   <div class="stat"><div class="k">Tijd</div><div class="v" id="time">0:00</div></div>
-  <div class="stat"><div class="k">Punten</div><div class="v" id="pts">0</div></div>
+  <div class="stat tap" id="bez"><div class="k">Bezorgd</div><div class="v" id="deliv">0</div></div>
 </div>
 
 <div class="status" id="status"><span class="dot"></span><span id="statusText">Klaar om te starten</span></div>
 
+<div class="banner" id="banner">
+  <div class="bt" id="bannerText">Opgeslagen route</div>
+  <button id="backLive">Terug naar live</button>
+</div>
+
 <div class="controls">
   <button class="ctl" id="center" title="Centreer op mij">⌖</button>
   <button class="go" id="toggle"><span class="glyph"></span><span id="toggleLabel">Start route</span></button>
-  <button class="ctl warn" id="clear" title="Nieuwe route">↺</button>
+  <button class="ctl" id="menuBtn" title="Menu">☰</button>
 </div>
 
-<!-- nieuwe-route bevestiging -->
+<!-- menu -->
+<div class="sheet" id="menuSheet">
+  <div class="card">
+    <h2>Menu</h2>
+    <button class="menu-item" id="finishBtn">Route afronden &amp; opslaan<span class="sub" id="finishSub">—</span></button>
+    <button class="menu-item" id="routesBtn">Opgeslagen routes<span class="sub" id="routesSub">—</span></button>
+    <div class="toggle-row"><span>Automatisch tellen bij stilstaan</span><div class="switch on" id="autoSwitch"></div></div>
+    <button class="menu-item danger" id="clearBtn">Huidige route wissen</button>
+    <div class="row"><button class="btn-ghost" id="menuClose">Sluiten</button></div>
+  </div>
+</div>
+
+<!-- opgeslagen routes -->
+<div class="sheet" id="routesSheet">
+  <div class="card scroll">
+    <h2>Opgeslagen routes</h2>
+    <div id="routesList"></div>
+    <div class="row"><button class="btn-ghost" id="routesClose">Sluiten</button></div>
+  </div>
+</div>
+
+<!-- wissen bevestiging -->
 <div class="sheet" id="confirmSheet">
   <div class="card">
-    <h2>Nieuwe route beginnen?</h2>
-    <p>Je huidige gekleurde route wordt gewist. Dit kun je niet ongedaan maken.</p>
-    <div class="row">
-      <button class="btn-ghost" id="confirmCancel">Annuleren</button>
-      <button class="btn-danger" id="confirmClear">Wissen</button>
-    </div>
+    <h2>Huidige route wissen?</h2>
+    <p style="margin:0 0 16px;font-size:14.5px;opacity:.8">De route die je nu aan het lopen bent wordt gewist. Opgeslagen routes blijven staan.</p>
+    <div class="row"><button class="btn-ghost" id="confirmCancel">Annuleren</button><button class="btn-danger" id="confirmClear">Wissen</button></div>
   </div>
 </div>
 
@@ -133,7 +154,7 @@
 <div class="sheet" id="errSheet">
   <div class="card">
     <h2 id="errTitle">Geen locatie</h2>
-    <p id="errBody"></p>
+    <p id="errBody" style="margin:0 0 16px;font-size:14.5px;opacity:.8"></p>
     <div class="row"><button class="btn-primary" id="errOk">Begrepen</button></div>
   </div>
 </div>
@@ -142,157 +163,219 @@
 <script>
 (function(){
   "use strict";
-  const STORE_KEY = "flyer:route:v1";
-  const NL = [52.1326, 5.2913]; // middelpunt NL als startbeeld
+  const K_ACTIVE="flyer:active:v2", K_ROUTES="flyer:routes:v2", K_AUTO="flyer:auto:v2", K_OLD="flyer:route:v1";
+  const NL=[52.1326,5.2913];
+  // detectie-instellingen
+  const STILL_RADIUS=12, DWELL_MS=6000, REARM_DIST=25;
 
-  // ---------- kaart ----------
-  const map = L.map("map", {zoomControl:false, attributionControl:true}).setView(NL, 7);
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    maxZoom: 20, attribution: '&copy; OpenStreetMap &copy; CARTO'
-  }).addTo(map);
+  const map=L.map("map",{zoomControl:false}).setView(NL,7);
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",{maxZoom:20,attribution:'&copy; OpenStreetMap &copy; CARTO'}).addTo(map);
   L.control.zoom({position:"topright"}).addTo(map);
+  const glow=L.polyline([],{color:"#19e07a",weight:16,opacity:.25,lineCap:"round",lineJoin:"round"}).addTo(map);
+  const core=L.polyline([],{color:"#19e07a",weight:6,opacity:.95,lineCap:"round",lineJoin:"round"}).addTo(map);
+  let here=null;
 
-  // markeerstift-route = 2 lagen: brede gloed + kern
-  const glow = L.polyline([], {color:"#19e07a", weight:16, opacity:.25, lineCap:"round", lineJoin:"round"}).addTo(map);
-  const core = L.polyline([], {color:"#19e07a", weight:6,  opacity:.95, lineCap:"round", lineJoin:"round"}).addTo(map);
-  let here = null; // huidige-positie marker
+  // state
+  let pts=[], distance=0, baseElapsed=0, delivered=0;
+  let routes=[], autoCount=true;
+  let tracking=false, watchId=null, wakeLock=null, startClock=0, tick=null, viewing=false;
+  // stop-detectie
+  let recent=[], stopCounted=true, countedAt=null;
 
-  // ---------- state ----------
-  let pts = [];          // [{lat,lng,t}]
-  let tracking = false;
-  let watchId = null;
-  let wakeLock = null;
-  let startClock = 0, baseElapsed = 0, tick = null;
-  let distance = 0;      // meters
+  const $=id=>document.getElementById(id);
 
-  // ---------- opslag (werkt binnen Claude én standalone gehost) ----------
-  function save(){
-    const data = JSON.stringify({pts, distance, baseElapsed});
-    try{ if(window.storage && window.storage.set){ window.storage.set(STORE_KEY, data, false); return; } }catch(e){}
-    try{ localStorage.setItem(STORE_KEY, data); }catch(e){}
-  }
-  async function load(){
-    let data = null;
-    try{ if(window.storage && window.storage.get){ const r = await window.storage.get(STORE_KEY, false); if(r && r.value) data = r.value; } }catch(e){}
-    if(data === null){ try{ data = localStorage.getItem(STORE_KEY); }catch(e){} }
-    if(data){ try{ const d = JSON.parse(data); pts = d.pts||[]; distance = d.distance||0; baseElapsed = d.baseElapsed||0; }catch(e){} }
+  // ---------- opslag ----------
+  function putKey(key,val){const d=JSON.stringify(val);
+    try{if(window.storage&&window.storage.set){window.storage.set(key,d,false);return;}}catch(e){}
+    try{localStorage.setItem(key,d);}catch(e){}}
+  async function getKey(key){
+    try{if(window.storage&&window.storage.get){const r=await window.storage.get(key,false);return r&&r.value?r.value:null;}}catch(e){}
+    try{return localStorage.getItem(key);}catch(e){return null;}}
+  function saveActive(){putKey(K_ACTIVE,{pts,distance,baseElapsed,delivered});}
+  function saveRoutes(){putKey(K_ROUTES,routes);}
+  function saveAuto(){putKey(K_AUTO,{autoCount});}
+
+  async function loadAll(){
+    let a=await getKey(K_ACTIVE);
+    if(a){try{const d=JSON.parse(a);pts=d.pts||[];distance=d.distance||0;baseElapsed=d.baseElapsed||0;delivered=d.delivered||0;}catch(e){}}
+    else{ // migratie van oude versie
+      let o=await getKey(K_OLD);
+      if(o){try{const d=JSON.parse(o);pts=d.pts||[];distance=d.distance||0;baseElapsed=d.baseElapsed||0;}catch(e){}}
+    }
+    let r=await getKey(K_ROUTES); if(r){try{routes=JSON.parse(r)||[];}catch(e){}}
+    let au=await getKey(K_AUTO); if(au){try{autoCount=JSON.parse(au).autoCount!==false;}catch(e){}}
+    $("autoSwitch").classList.toggle("on",autoCount);
     redraw(); updateStats();
-    if(pts.length){ const last = pts[pts.length-1]; map.setView([last.lat,last.lng], 16); placeHere(last.lat,last.lng); }
+    if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],16);placeHere(l.lat,l.lng);}
   }
 
   // ---------- tekenen ----------
-  function redraw(){
-    const latlngs = pts.map(p=>[p.lat,p.lng]);
-    glow.setLatLngs(latlngs); core.setLatLngs(latlngs);
-  }
+  function redraw(){const ll=pts.map(p=>[p.lat,p.lng]);glow.setLatLngs(ll);core.setLatLngs(ll);}
   function placeHere(lat,lng){
-    if(!here){
-      here = L.circleMarker([lat,lng], {radius:7, color:"#fff", weight:3, fillColor:"#10221b", fillOpacity:1}).addTo(map);
-    } else here.setLatLng([lat,lng]);
-  }
+    if(!here){here=L.circleMarker([lat,lng],{radius:7,color:"#fff",weight:3,fillColor:"#10221b",fillOpacity:1}).addTo(map);}
+    else here.setLatLng([lat,lng]);}
 
-  // ---------- afstand ----------
-  function haversine(a,b){
-    const R=6371000, toR=x=>x*Math.PI/180;
-    const dLat=toR(b.lat-a.lat), dLng=toR(b.lng-a.lng);
-    const s=Math.sin(dLat/2)**2 + Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
-    return 2*R*Math.asin(Math.sqrt(s));
-  }
+  function haversine(a,b){const R=6371000,toR=x=>x*Math.PI/180;
+    const dLat=toR(b.lat-a.lat),dLng=toR(b.lng-a.lng);
+    const s=Math.sin(dLat/2)**2+Math.cos(toR(a.lat))*Math.cos(toR(b.lat))*Math.sin(dLng/2)**2;
+    return 2*R*Math.asin(Math.sqrt(s));}
 
-  // ---------- stats ----------
-  function fmtTime(ms){
-    const s=Math.floor(ms/1000), h=Math.floor(s/3600), m=Math.floor((s%3600)/60), ss=s%60;
-    return h ? `${h}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`
-             : `${m}:${String(ss).padStart(2,"0")}`;
-  }
+  function fmtTime(ms){const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+    return h?`${h}:${String(m).padStart(2,"0")}:${String(ss).padStart(2,"0")}`:`${m}:${String(ss).padStart(2,"0")}`;}
+  function elapsedMs(){return baseElapsed+(tracking?Date.now()-startClock:0);}
   function updateStats(){
-    document.getElementById("dist").innerHTML = (distance/1000).toFixed(2).replace(".",",")+'<small> km</small>';
-    document.getElementById("pts").textContent = pts.length;
-    const elapsed = baseElapsed + (tracking ? Date.now()-startClock : 0);
-    document.getElementById("time").textContent = fmtTime(elapsed);
+    $("dist").innerHTML=(distance/1000).toFixed(2).replace(".",",")+'<small> km</small>';
+    $("deliv").textContent=delivered;
+    $("time").textContent=fmtTime(elapsedMs());}
+
+  function flashDeliv(){const t=$("bez");t.classList.remove("flash");void t.offsetWidth;t.classList.add("flash");}
+
+  // ---------- stop-detectie ----------
+  function detectStop(p){
+    if(!autoCount) return;
+    if(countedAt===null){countedAt=p;}
+    recent.push(p);
+    while(recent.length&&(p.t-recent[0].t)>DWELL_MS) recent.shift();
+    if(stopCounted&&haversine(p,countedAt)>REARM_DIST){stopCounted=false;}
+    if(!stopCounted&&recent.length>=2&&(p.t-recent[0].t)>=DWELL_MS){
+      let still=true;
+      for(const q of recent){if(haversine(q,p)>STILL_RADIUS){still=false;break;}}
+      if(still){delivered++;stopCounted=true;countedAt=p;flashDeliv();updateStats();saveActive();}
+    }
   }
 
   // ---------- GPS ----------
   function onPos(pos){
-    const {latitude:lat, longitude:lng, accuracy} = pos.coords;
-    if(accuracy && accuracy > 60) { placeHere(lat,lng); return; } // sla onnauwkeurige punten over
-    const p = {lat,lng,t:Date.now()};
-    if(pts.length){
-      const d = haversine(pts[pts.length-1], p);
-      if(d < 4) { placeHere(lat,lng); return; }                  // negeer GPS-trilling < 4 m
-      distance += d;
-    } else {
-      map.setView([lat,lng], 17);
-    }
-    pts.push(p); redraw(); placeHere(lat,lng); updateStats(); save();
+    const {latitude:lat,longitude:lng,accuracy}=pos.coords;
+    if(accuracy&&accuracy>60){placeHere(lat,lng);return;}
+    const p={lat,lng,t:Date.now()};
+    detectStop(p);
+    if(pts.length){const d=haversine(pts[pts.length-1],p);if(d<4){placeHere(lat,lng);return;}distance+=d;}
+    else{map.setView([lat,lng],17);}
+    pts.push(p);redraw();placeHere(lat,lng);updateStats();saveActive();
   }
   function onErr(err){
-    let body = "Onbekende fout bij het ophalen van je locatie.";
-    if(err.code===1) body = "De app heeft geen toestemming voor je locatie. Sta locatie toe en probeer opnieuw. Werkt het in de Claude-app niet, voeg deze pagina dan toe aan je beginscherm en open 'm daarvandaan — dan werkt GPS betrouwbaar.";
-    else if(err.code===2) body = "Je locatie is nu niet beschikbaar. Controleer of GPS/locatievoorzieningen aanstaan en of je buiten goed bereik hebt.";
-    else if(err.code===3) body = "Het duurde te lang om een locatie te vinden. Probeer het buiten opnieuw.";
-    showErr("Geen locatie", body);
-    stop();
+    let b="Onbekende fout bij het ophalen van je locatie.";
+    if(err.code===1)b="De app heeft geen toestemming voor je locatie. Sta locatie toe en probeer opnieuw.";
+    else if(err.code===2)b="Je locatie is nu niet beschikbaar. Controleer of locatievoorzieningen aanstaan.";
+    else if(err.code===3)b="Het duurde te lang om een locatie te vinden. Probeer het buiten opnieuw.";
+    showErr("Geen locatie",b);stop();
   }
+  async function requestWake(){try{if("wakeLock"in navigator){wakeLock=await navigator.wakeLock.request("screen");}}catch(e){}}
+  function releaseWake(){try{wakeLock&&wakeLock.release();}catch(e){}wakeLock=null;}
+  document.addEventListener("visibilitychange",()=>{if(tracking&&document.visibilityState==="visible")requestWake();});
 
-  // ---------- scherm wakker houden ----------
-  async function requestWake(){
-    try{ if("wakeLock" in navigator){ wakeLock = await navigator.wakeLock.request("screen"); } }catch(e){}
-  }
-  function releaseWake(){ try{ wakeLock && wakeLock.release(); }catch(e){} wakeLock=null; }
-  document.addEventListener("visibilitychange", ()=>{ if(tracking && document.visibilityState==="visible") requestWake(); });
-
-  // ---------- start / stop ----------
   function start(){
-    if(!("geolocation" in navigator)){ showErr("Geen GPS", "Dit apparaat of deze omgeving ondersteunt geen locatie."); return; }
-    tracking = true; startClock = Date.now();
-    watchId = navigator.geolocation.watchPosition(onPos, onErr, {enableHighAccuracy:true, maximumAge:0, timeout:20000});
-    requestWake();
-    tick = setInterval(updateStats, 1000);
-    setLive(true);
+    if(viewing) backToLive();
+    if(!("geolocation"in navigator)){showErr("Geen GPS","Dit apparaat ondersteunt geen locatie.");return;}
+    tracking=true;startClock=Date.now();
+    recent=[];stopCounted=true;countedAt=null;
+    watchId=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,maximumAge:0,timeout:20000});
+    requestWake();tick=setInterval(updateStats,1000);setLive(true);
   }
   function stop(){
-    tracking = false;
-    if(watchId!=null){ navigator.geolocation.clearWatch(watchId); watchId=null; }
-    if(tick){ clearInterval(tick); tick=null; }
-    baseElapsed += startClock ? Date.now()-startClock : 0; startClock=0;
-    releaseWake(); save(); setLive(false); updateStats();
+    tracking=false;
+    if(watchId!=null){navigator.geolocation.clearWatch(watchId);watchId=null;}
+    if(tick){clearInterval(tick);tick=null;}
+    baseElapsed+=startClock?Date.now()-startClock:0;startClock=0;
+    releaseWake();saveActive();setLive(false);updateStats();
   }
   function setLive(on){
-    const s=document.getElementById("status"), st=document.getElementById("statusText");
-    const go=document.getElementById("toggle"), lbl=document.getElementById("toggleLabel");
-    s.classList.toggle("live", on);
-    st.textContent = on ? "Route wordt bijgehouden" : (pts.length? "Gepauzeerd" : "Klaar om te starten");
-    go.classList.toggle("live", on);
-    lbl.textContent = on ? "Pauze" : (pts.length? "Hervat route" : "Start route");
+    $("status").classList.toggle("live",on);
+    $("statusText").textContent=on?"Route wordt bijgehouden":(pts.length?"Gepauzeerd":"Klaar om te starten");
+    $("toggle").classList.toggle("live",on);
+    $("toggleLabel").textContent=on?"Pauze":(pts.length?"Hervat route":"Start route");
   }
+
+  // ---------- routes opslaan / beheren ----------
+  function fmtDate(iso){try{return new Date(iso).toLocaleString("nl-NL",{weekday:"short",day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});}catch(e){return iso;}}
+  function finishRoute(){
+    if(tracking) stop();
+    if(!pts.length){closeAll();return;}
+    routes.unshift({id:Date.now(),date:new Date().toISOString(),pts:pts.slice(),distance,durationMs:baseElapsed,delivered});
+    saveRoutes();
+    pts=[];distance=0;baseElapsed=0;delivered=0;
+    recent=[];stopCounted=true;countedAt=null;
+    if(here){map.removeLayer(here);here=null;}
+    redraw();updateStats();saveActive();setLive(false);closeAll();
+  }
+  function clearActive(){
+    if(tracking) stop();
+    pts=[];distance=0;baseElapsed=0;delivered=0;
+    recent=[];stopCounted=true;countedAt=null;
+    if(here){map.removeLayer(here);here=null;}
+    redraw();updateStats();saveActive();setLive(false);
+  }
+  function renderRoutes(){
+    const box=$("routesList");box.innerHTML="";
+    if(!routes.length){box.innerHTML='<div class="empty">Nog geen opgeslagen routes.</div>';return;}
+    routes.forEach(r=>{
+      const item=document.createElement("div");item.className="route-item";
+      const info=document.createElement("div");info.className="info";
+      info.innerHTML=`<div class="d">${fmtDate(r.date)}</div><div class="m">${(r.distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(r.durationMs)} · ${r.delivered} bezorgd</div>`;
+      info.onclick=()=>viewRoute(r);
+      const del=document.createElement("button");del.className="del";del.textContent="×";
+      del.onclick=()=>{routes=routes.filter(x=>x.id!==r.id);saveRoutes();renderRoutes();};
+      item.appendChild(info);item.appendChild(del);box.appendChild(item);
+    });
+  }
+  function viewRoute(r){
+    viewing=true;document.body.classList.add("viewing");
+    if(tracking) stop();
+    const ll=r.pts.map(p=>[p.lat,p.lng]);glow.setLatLngs(ll);core.setLatLngs(ll);
+    if(here){map.removeLayer(here);here=null;}
+    if(ll.length)map.fitBounds(ll,{padding:[50,50]});
+    $("bannerText").innerHTML=`<div class="bt">${fmtDate(r.date)}<small>${(r.distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(r.durationMs)} · ${r.delivered} bezorgd</small></div>`;
+    $("banner").classList.add("show");closeAll();
+  }
+  function backToLive(){
+    viewing=false;document.body.classList.remove("viewing");$("banner").classList.remove("show");
+    redraw();
+    if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],16);placeHere(l.lat,l.lng);}
+  }
+
+  // ---------- sheets ----------
+  function closeAll(){["menuSheet","routesSheet","confirmSheet","errSheet"].forEach(i=>$(i).classList.remove("show"));}
+  function openMenu(){
+    const has=pts.length>0;
+    $("finishBtn").disabled=!has;
+    $("finishSub").textContent=has?`${(distance/1000).toFixed(2).replace(".",",")} km · ${fmtTime(elapsedMs())} · ${delivered} bezorgd`:"geen route bezig";
+    $("clearBtn").disabled=!has;
+    $("routesSub").textContent=routes.length?`${routes.length} opgeslagen`:"nog geen";
+    $("menuSheet").classList.add("show");
+  }
+  function showErr(t,b){$("errTitle").textContent=t;$("errBody").textContent=b;$("errSheet").classList.add("show");}
 
   // ---------- knoppen ----------
-  document.getElementById("toggle").onclick = ()=> tracking ? stop() : start();
-  document.getElementById("center").onclick = ()=>{
-    if(pts.length){ const l=pts[pts.length-1]; map.setView([l.lat,l.lng], 17); }
-    else navigator.geolocation && navigator.geolocation.getCurrentPosition(
-      p=>{ map.setView([p.coords.latitude,p.coords.longitude],17); placeHere(p.coords.latitude,p.coords.longitude); }, ()=>{}, {enableHighAccuracy:true});
+  $("toggle").onclick=()=>tracking?stop():start();
+  $("center").onclick=()=>{
+    if(viewing)return;
+    if(pts.length){const l=pts[pts.length-1];map.setView([l.lat,l.lng],17);}
+    else if(navigator.geolocation)navigator.geolocation.getCurrentPosition(
+      p=>{map.setView([p.coords.latitude,p.coords.longitude],17);placeHere(p.coords.latitude,p.coords.longitude);},()=>{},{enableHighAccuracy:true});
   };
-  const confirmSheet=document.getElementById("confirmSheet");
-  document.getElementById("clear").onclick = ()=> confirmSheet.classList.add("show");
-  document.getElementById("confirmCancel").onclick = ()=> confirmSheet.classList.remove("show");
-  document.getElementById("confirmClear").onclick = async ()=>{
-    stop(); pts=[]; distance=0; baseElapsed=0;
-    redraw(); updateStats(); await save();
-    if(here){ map.removeLayer(here); here=null; }
-    setLive(false); confirmSheet.classList.remove("show");
-  };
+  $("menuBtn").onclick=openMenu;
+  $("menuClose").onclick=closeAll;
+  $("finishBtn").onclick=finishRoute;
+  $("routesBtn").onclick=()=>{renderRoutes();$("menuSheet").classList.remove("show");$("routesSheet").classList.add("show");};
+  $("routesClose").onclick=closeAll;
+  $("backLive").onclick=backToLive;
+  $("autoSwitch").onclick=()=>{autoCount=!autoCount;$("autoSwitch").classList.toggle("on",autoCount);saveAuto();};
+  $("clearBtn").onclick=()=>{$("menuSheet").classList.remove("show");$("confirmSheet").classList.add("show");};
+  $("confirmCancel").onclick=closeAll;
+  $("confirmClear").onclick=()=>{clearActive();closeAll();};
+  $("errOk").onclick=closeAll;
 
-  // foutoverlay
-  function showErr(title, body){
-    document.getElementById("errTitle").textContent=title;
-    document.getElementById("errBody").textContent=body;
-    document.getElementById("errSheet").classList.add("show");
-  }
-  document.getElementById("errOk").onclick = ()=> document.getElementById("errSheet").classList.remove("show");
+  // handmatig bijsturen: tik = +1, lang indrukken = -1
+  function adjust(n){delivered=Math.max(0,delivered+n);flashDeliv();updateStats();saveActive();}
+  let lpTimer=null,lpFired=false,touched=0;
+  const bez=$("bez");
+  bez.addEventListener("touchstart",()=>{touched=Date.now();lpFired=false;lpTimer=setTimeout(()=>{lpFired=true;adjust(-1);},550);},{passive:true});
+  bez.addEventListener("touchmove",()=>clearTimeout(lpTimer),{passive:true});
+  bez.addEventListener("touchend",e=>{e.preventDefault();clearTimeout(lpTimer);if(!lpFired)adjust(1);},{passive:false});
+  bez.addEventListener("click",()=>{if(Date.now()-touched>700)adjust(1);});
 
-  load();
+  loadAll();
 })();
 </script>
 </body>
