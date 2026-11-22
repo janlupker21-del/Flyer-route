@@ -1,0 +1,15 @@
+{
+  "name": "4x4x48 Training",
+  "short_name": "4x4x48",
+  "description": "12-week training plan and loop timer for the 4x4x48 challenge",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
