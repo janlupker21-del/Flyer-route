@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self'; manifest-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b0f14">
+<meta name="color-scheme" content="dark">
+<meta name="referrer" content="no-referrer">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="4x4x48">
+<title>4x4x48 Training</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+<script src="app.js" defer></script>
+</head>
+<body>
+<header class="top">
+  <h1>4x4x48</h1>
+  <div id="weekChip" class="chip"></div>
+</header>
+<div id="banner" class="banner" role="status" aria-live="polite" hidden></div>
+
+<main>
+  <!-- PLAN -->
+  <section id="view-plan" class="view" aria-label="Schedule">
+    <div id="today"></div>
+    <div id="weeks"></div>
+  </section>
+
+  <!-- TIMER -->
+  <section id="view-timer" class="view" aria-label="Loop timer" hidden>
+    <div class="card">
+      <div class="seg" role="radiogroup" aria-label="Timer mode">
+        <button type="button" role="radio" data-mode="hourly">Every hour<small>backyard</small></button>
+        <button type="button" role="radio" data-mode="four">Every 4 hours<small>4x4x48</small></button>
+      </div>
+      <p id="modeHint" class="hint" hidden>Stop the timer to change mode.</p>
+
+      <div id="timerIdle">
+        <label class="lbl">First loop starts at (optional)
+          <input type="datetime-local" id="timerStartAt">
+        </label>
+        <p class="hint">Leave empty to start loop 1 right now.</p>
+        <button type="button" id="timerStart" class="btn primary big">Start timer</button>
+        <p id="timerErr" class="err" role="alert"></p>
+      </div>
+
+      <div id="timerRun" hidden>
+        <div class="tstate"><span id="tState" class="badge"></span><span id="tLoop" class="tloop"></span></div>
+        <div class="tlabel">Time in this loop</div>
+        <div id="tElapsed" class="big">00:00</div>
+        <div class="tlabel" id="tCountLabel">Next loop starts in</div>
+        <div id="tCountdown" class="big2">00:00</div>
+        <div id="tNextAt" class="hint"></div>
+        <div id="tWarn" class="warn" role="alert" hidden></div>
+        <button type="button" id="timerFinish" class="btn primary big">Finished loop</button>
+        <div class="row">
+          <button type="button" id="timerUndo" class="btn">Undo last loop</button>
+          <button type="button" id="timerStop" class="btn danger">Stop &amp; clear</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Loop history</h2>
+      <p id="loopSummary" class="hint"></p>
+      <ol id="loopList" class="loops"></ol>
+    </div>
+  </section>
+
+  <!-- PROGRESS -->
+  <section id="view-progress" class="view" aria-label="Progress" hidden>
+    <div id="progress"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="view-settings" class="view" aria-label="Settings" hidden>
+    <div class="card">
+      <h2>Start date</h2>
+      <div id="startDateMount"></div>
+    </div>
+
+    <div class="card">
+      <h2>Easy-pace target (min/km)</h2>
+      <div class="row">
+        <label class="lbl">From<input type="text" id="paceMin" autocomplete="off" placeholder="7:00" maxlength="5"></label>
+        <label class="lbl">To<input type="text" id="paceMax" autocomplete="off" placeholder="7:30" maxlength="5"></label>
+      </div>
+      <button type="button" id="paceSave" class="btn primary">Save pace</button>
+      <p id="paceMsg" class="err" role="alert"></p>
+    </div>
+
+    <div class="card">
+      <h2>Alerts</h2>
+      <label class="check"><input type="checkbox" id="optSound"> Sound before next loop</label>
+      <label class="check"><input type="checkbox" id="optVibrate"> Vibration before next loop</label>
+      <label class="check"><input type="checkbox" id="optWake"> Keep screen on while the timer runs</label>
+      <button type="button" id="testAlert" class="btn">Test alert</button>
+      <p class="hint">Alerts only fire while the app is open. iPhone Safari does not support vibration. Keep the app open (screen on) during real loop days.</p>
+    </div>
+
+    <div class="card">
+      <h2>Backup</h2>
+      <div class="row">
+        <button type="button" id="exportBtn" class="btn">Export JSON</button>
+        <button type="button" id="copyBtn" class="btn">Copy JSON</button>
+      </div>
+      <label class="lbl">Import from file
+        <input type="file" id="importFile" accept=".json,application/json">
+      </label>
+      <label class="lbl">…or paste backup JSON
+        <textarea id="importText" rows="4" spellcheck="false" autocomplete="off"></textarea>
+      </label>
+      <button type="button" id="importBtn" class="btn">Import pasted JSON</button>
+      <p id="dataMsg" class="hint" role="status"></p>
+    </div>
+
+    <div class="card">
+      <h2>Reset</h2>
+      <button type="button" id="resetBtn" class="btn danger">Reset all data</button>
+    </div>
+    <p class="hint center">All data stays on this device (localStorage). Loop length: 6.706 km.</p>
+  </section>
+</main>
+
+<nav class="tabs" aria-label="Main">
+  <button type="button" data-view="plan">Plan</button>
+  <button type="button" data-view="timer">Timer</button>
+  <button type="button" data-view="progress">Progress</button>
+  <button type="button" data-view="settings">Settings</button>
+</nav>
+
+<dialog id="confirmDlg" aria-labelledby="confirmMsg">
+  <p id="confirmMsg"></p>
+  <div class="row">
+    <button type="button" id="confirmCancel" class="btn">Cancel</button>
+    <button type="button" id="confirmOk" class="btn danger">OK</button>
+  </div>
+</dialog>
+</body>
+</html>
